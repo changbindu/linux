@@ -348,6 +348,13 @@ config BRANCH_TRACER
 
 	  Say N if unsure.
 
+config MEM_TRACER
+	bool "Trace memory access"
+	help
+	  This traces the events of memory rw operations.
+
+	  Say N if unsure.
+
 config STACK_TRACER
 	bool "Trace max stack"
 	depends on HAVE_FUNCTION_TRACER

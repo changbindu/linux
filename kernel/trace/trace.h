@@ -38,6 +38,7 @@ enum trace_type {
 	TRACE_USER_STACK,
 	TRACE_BLK,
 	TRACE_BPUTS,
+	TRACE_MEM,
 
 	__TRACE_LAST_TYPE,
 };
@@ -322,9 +323,10 @@ extern void __ftrace_bad_type(void);
 			  TRACE_MMIO_MAP);				\
 		IF_ASSIGN(var, ent, struct trace_branch, TRACE_BRANCH); \
 		IF_ASSIGN(var, ent, struct ftrace_graph_ent_entry,	\
-			  TRACE_GRAPH_ENT);		\
+			  TRACE_GRAPH_ENT);				\
 		IF_ASSIGN(var, ent, struct ftrace_graph_ret_entry,	\
-			  TRACE_GRAPH_RET);		\
+			  TRACE_GRAPH_RET);				\
+		IF_ASSIGN(var, ent, struct trace_mem, TRACE_MEM);	\
 		__ftrace_bad_type();					\
 	} while (0)
 

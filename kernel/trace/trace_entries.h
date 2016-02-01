@@ -322,3 +322,22 @@ FTRACE_ENTRY(branch, trace_branch,
 	FILTER_OTHER
 );
 
+FTRACE_ENTRY(mem, trace_mem,
+
+	TRACE_BRANCH,
+
+	F_STRUCT(
+		__field(	unsigned long,		addr		)
+		__field(	unsigned long,		ip		)
+		__field(	int,			type		)
+		__field(	int,			pid		)
+		__field(	int,			size		)
+		__field(	u64,			value		)
+	),
+
+	F_printk("%lx %lx %d %d %llx",
+		 __entry->addr, __entry->ip, __entry->type,
+		 __entry->pid, __entry->value),
+
+	FILTER_OTHER
+);
