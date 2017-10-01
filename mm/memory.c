@@ -3483,6 +3483,16 @@ static int __init fault_around_debugfs(void)
 late_initcall(fault_around_debugfs);
 #endif
 
+static unsigned long get_fault_around_bytes(struct vm_fault *vmf)
+{
+	unsigned long bytes = READ_ONCE(fault_around_bytes);
+
+	if (transparent_hugepage_enabled(vmf->vma)) {
+		bytes = roundup(bytes, PMD_PAGE_SIZE);
+	}
+	return bytes;
+}
+
 /*
  * do_fault_around() tries to map few pages around the fault address. The hope
  * is that the pages will be needed soon and this will lower the number of
@@ -3513,7 +3523,7 @@ static int do_fault_around(struct vm_fault *vmf)
 	pgoff_t end_pgoff;
 	int off, ret = 0;
 
-	nr_pages = READ_ONCE(fault_around_bytes) >> PAGE_SHIFT;
+	nr_pages = get_fault_around_bytes(vmf) >> PAGE_SHIFT;
 	mask = ~(nr_pages * PAGE_SIZE - 1) & PAGE_MASK;
 
 	vmf->address = max(address & mask, vmf->vma->vm_start);
