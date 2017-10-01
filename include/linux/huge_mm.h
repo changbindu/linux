@@ -133,6 +133,22 @@ extern unsigned long thp_get_unmapped_area(struct file *filp,
 extern void prep_transhuge_page(struct page *page);
 extern void free_transhuge_page(struct page *page);
 
+static inline struct page *
+alloc_hugepage_vma(gfp_t gfp_mask, struct vm_area_struct *vma, unsigned long addr)
+{
+	struct page *page;
+
+#ifdef CONFIG_NUMA
+	page = alloc_pages_vma(gfp_mask, HPAGE_PMD_ORDER, vma, addr, numa_node_id(), true);
+#else
+	page = alloc_pages(gfp_mask, HPAGE_PMD_ORDER);
+#endif
+	if (unlikely(!page))
+		return NULL;
+	prep_transhuge_page(page);
+	return page;
+}
+
 bool can_split_huge_page(struct page *page, int *pextra_pins);
 int split_huge_page_to_list(struct page *page, struct list_head *list);
 static inline int split_huge_page(struct page *page)

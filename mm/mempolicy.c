@@ -1125,11 +1125,9 @@ static struct page *new_page(struct page *page, unsigned long start, int **x)
 	} else if (thp_migration_supported() && PageTransHuge(page)) {
 		struct page *thp;
 
-		thp = alloc_hugepage_vma(GFP_TRANSHUGE, vma, address,
-					 HPAGE_PMD_ORDER);
+		thp = alloc_hugepage_vma(GFP_TRANSHUGE, vma, address);
 		if (!thp)
 			return NULL;
-		prep_transhuge_page(thp);
 		return thp;
 	}
 	/*
