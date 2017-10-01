@@ -3157,6 +3157,9 @@ oom:
 	return VM_FAULT_OOM;
 }
 
+static bool transhuge_vma_suitable(struct vm_area_struct *vma,
+		unsigned long haddr);
+
 /*
  * The mmap_sem must have been held on entry, and may have been
  * released depending on flags and vma->vm_ops->fault() return value.
@@ -3166,6 +3169,10 @@ static int __do_fault(struct vm_fault *vmf)
 {
 	struct vm_area_struct *vma = vmf->vma;
 	int ret;
+
+	if (transhuge_vma_suitable(vmf->vma, vmf->address) &&
+	    transparent_hugepage_enabled(vmf->vma))
+		vmf->hugepage_suitable = true;
 
 	ret = vma->vm_ops->fault(vmf);
 	if (unlikely(ret & (VM_FAULT_ERROR | VM_FAULT_NOPAGE | VM_FAULT_RETRY |
