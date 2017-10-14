@@ -99,7 +99,7 @@ static inline bool shmem_file(struct file *file)
 {
 	if (!IS_ENABLED(CONFIG_SHMEM))
 		return false;
-	if (!file || !file->f_mapping)
+	if (!file->f_mapping)
 		return false;
 	return shmem_mapping(file->f_mapping);
 }
