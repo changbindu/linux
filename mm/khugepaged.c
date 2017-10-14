@@ -665,7 +665,7 @@ static void khugepaged_alloc_sleep(void)
 	remove_wait_queue(&khugepaged_wait, &wait);
 }
 
-static int khugepaged_node_load[MAX_NUMNODES];
+static int *khugepaged_node_load;
 
 static bool khugepaged_scan_abort(int nid)
 {
@@ -682,7 +682,7 @@ static bool khugepaged_scan_abort(int nid)
 	if (khugepaged_node_load[nid])
 		return false;
 
-	for (i = 0; i < MAX_NUMNODES; i++) {
+	for (i = 0; i < nr_node_ids; i++) {
 		if (!khugepaged_node_load[i])
 			continue;
 		if (node_distance(nid, i) > RECLAIM_DISTANCE)
@@ -704,7 +704,7 @@ static int khugepaged_find_target_node(void)
 	int nid, target_node = 0, max_value = 0;
 
 	/* find first node with max normal pages hit */
-	for (nid = 0; nid < MAX_NUMNODES; nid++)
+	for (nid = 0; nid < nr_node_ids; nid++)
 		if (khugepaged_node_load[nid] > max_value) {
 			max_value = khugepaged_node_load[nid];
 			target_node = nid;
@@ -712,7 +712,7 @@ static int khugepaged_find_target_node(void)
 
 	/* do some balance if several nodes have the same hit record */
 	if (target_node <= last_khugepaged_target_node)
-		for (nid = last_khugepaged_target_node + 1; nid < MAX_NUMNODES;
+		for (nid = last_khugepaged_target_node + 1; nid < nr_node_ids;
 				nid++)
 			if (max_value == khugepaged_node_load[nid]) {
 				target_node = nid;
@@ -1111,7 +1111,7 @@ static int khugepaged_scan_pmd(struct mm_struct *mm,
 		goto out;
 	}
 
-	memset(khugepaged_node_load, 0, sizeof(khugepaged_node_load));
+	memset(khugepaged_node_load, 0, sizeof(*khugepaged_node_load) * nr_node_ids);
 	pte = pte_offset_map_lock(mm, pmd, address, &ptl);
 	for (_address = address, _pte = pte; _pte < pte+HPAGE_PMD_NR;
 	     _pte++, _address += PAGE_SIZE) {
@@ -1572,7 +1572,7 @@ static void khugepaged_scan_shmem(struct mm_struct *mm,
 
 	present = 0;
 	swap = 0;
-	memset(khugepaged_node_load, 0, sizeof(khugepaged_node_load));
+	memset(khugepaged_node_load, 0, sizeof(*khugepaged_node_load) * nr_node_ids);
 	rcu_read_lock();
 	radix_tree_for_each_slot(slot, &mapping->page_tree, &iter, start) {
 		if (iter.index >= start + HPAGE_PMD_NR)
@@ -1850,6 +1850,12 @@ static int khugepaged(void *none)
 	set_freezable();
 	set_user_nice(current, MAX_NICE);
 
+	khugepaged_node_load = kmalloc(sizeof(*khugepaged_node_load) * nr_node_ids, GFP_KERNEL);
+	if (!khugepaged_node_load) {
+		pr_err("khugepaged: alloc khugepaged_node_load failed\n");
+		return 0;
+	}
+
 	while (!kthread_should_stop()) {
 		khugepaged_do_scan();
 		khugepaged_wait_work();
@@ -1861,6 +1867,10 @@ static int khugepaged(void *none)
 	if (mm_slot)
 		collect_mm_slot(mm_slot);
 	spin_unlock(&khugepaged_mm_lock);
+
+	kfree(khugepaged_node_load);
+	khugepaged_node_load = NULL;
+
 	return 0;
 }
 
