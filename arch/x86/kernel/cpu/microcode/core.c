@@ -64,7 +64,7 @@ LIST_HEAD(microcode_cache);
  */
 static DEFINE_MUTEX(microcode_mutex);
 
-struct ucode_cpu_info		ucode_cpu_info[NR_CPUS];
+CPU_DATA_PROT(struct ucode_cpu_info, ucode_cpu_info);
 
 struct cpu_info_ctx {
 	struct cpu_signature	*cpu_sig;
@@ -231,6 +231,9 @@ static int __init save_microcode_in_initrd(void)
 {
 	struct cpuinfo_x86 *c = &boot_cpu_data;
 	int ret = -EINVAL;
+
+	if (!cpu_data_alloc(ucode_cpu_info, GFP_KERNEL))
+		return -ENOMEM;
 
 	switch (c->x86_vendor) {
 	case X86_VENDOR_INTEL:

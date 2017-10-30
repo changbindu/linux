@@ -3,6 +3,7 @@
 #define _ASM_X86_MICROCODE_H
 
 #include <asm/cpu.h>
+#include <linux/cpudata.h>
 #include <linux/earlycpio.h>
 #include <linux/initrd.h>
 
@@ -63,7 +64,7 @@ struct ucode_cpu_info {
 	int			valid;
 	void			*mc;
 };
-extern struct ucode_cpu_info ucode_cpu_info[];
+extern CPU_DATA_PROT(struct ucode_cpu_info, ucode_cpu_info);
 struct cpio_data find_microcode_in_initrd(const char *path, bool use_pa);
 
 #ifdef CONFIG_MICROCODE_INTEL
