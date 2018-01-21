@@ -46,6 +46,9 @@ void ftrace_graph_stop(void)
 /* When set, irq functions will be ignored */
 static int ftrace_graph_skip_irqs;
 
+/* When set, appy tracing_thresh to nested functions */
+static int ftrace_graph_childthresh;
+
 struct fgraph_cpu_data {
 	pid_t		last_pid;
 	int		depth;
@@ -89,6 +92,8 @@ static struct tracer_opt trace_opts[] = {
 	{ TRACER_OPT(sleep-time, TRACE_GRAPH_SLEEP_TIME) },
 	/* Include time within nested functions */
 	{ TRACER_OPT(graph-time, TRACE_GRAPH_GRAPH_TIME) },
+	/* Appy tracing_thresh to nested functions */
+	{ TRACER_OPT(graph-childthresh, TRACE_GRAPH_CHILD_THRESH) },
 	{ } /* Empty entry */
 };
 
@@ -405,7 +410,7 @@ int trace_graph_entry(struct ftrace_graph_ent *trace)
 	 * Stop here if tracing_threshold is set. We only write function return
 	 * events to the ring buffer.
 	 */
-	if (tracing_thresh)
+	if (tracing_thresh && (ftrace_graph_childthresh || !trace->depth))
 		return 1;
 
 	local_irq_save(flags);
@@ -505,7 +510,7 @@ void set_graph_array(struct trace_array *tr)
 
 static void trace_graph_thresh_return(struct ftrace_graph_ret *trace)
 {
-	if (tracing_thresh &&
+	if (tracing_thresh && (ftrace_graph_childthresh || !trace->depth) &&
 	    (trace->rettime - trace->calltime < tracing_thresh))
 		return;
 	else
@@ -1447,6 +1452,9 @@ func_graph_set_flag(struct trace_array *tr, u32 old_flags, u32 bit, int set)
 {
 	if (bit == TRACE_GRAPH_PRINT_IRQS)
 		ftrace_graph_skip_irqs = !set;
+
+	if (bit == TRACE_GRAPH_CHILD_THRESH)
+		ftrace_graph_childthresh = set;
 
 	if (bit == TRACE_GRAPH_SLEEP_TIME)
 		ftrace_graph_sleep_time_control(set);
