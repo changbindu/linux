@@ -178,6 +178,7 @@ ftrace_push_return_trace(unsigned long ret, unsigned long func, int *depth,
 	current->ret_stack[index].retp = retp;
 #endif
 	*depth = current->curr_ret_stack;
+	current->last_depth = current->curr_ret_stack;
 
 	return 0;
 }
@@ -413,8 +414,9 @@ int trace_graph_entry(struct ftrace_graph_ent *trace)
 	data = per_cpu_ptr(tr->trace_buffer.data, cpu);
 	disabled = atomic_inc_return(&data->disabled);
 	if (likely(disabled == 1)) {
-		pc = preempt_count();
-		ret = __trace_graph_entry(tr, trace, flags, pc);
+		//pc = preempt_count();
+		//ret = __trace_graph_entry(tr, trace, flags, pc);
+		ret = 1;
 	} else {
 		ret = 0;
 	}
@@ -473,6 +475,39 @@ void __trace_graph_return(struct trace_array *tr,
 		trace_buffer_unlock_commit_nostack(buffer, event);
 }
 
+void __trace_graph_return_batch(struct trace_array *tr,
+				struct ftrace_graph_ret *trace,
+				unsigned long flags,
+				int pc)
+{
+	struct trace_event_call *call = &event_funcgraph_exit;
+	struct ring_buffer_event *event;
+	struct ring_buffer *buffer = tr->trace_buffer.buffer;
+	struct ftrace_graph_ret_entry_batch *entry;
+	int index;
+	int size = sizeof(*entry);
+
+	size += current->last_depth * sizeof(struct ftrace_graph_ret);
+	event = trace_buffer_lock_reserve(buffer, TRACE_GRAPH_RET_BATCH,
+					  size, flags, pc);
+	if (!event)
+		return;
+	entry = ring_buffer_event_data(event);
+	entry->rets[0] = *trace;
+
+	for (index = 1; index < current->last_depth; index++) {
+		barrier();
+		entry->rets[index].func = current->ret_stack[index].func;
+		entry->rets[index].calltime = current->ret_stack[index].calltime;
+		entry->rets[index].rettime = current->ret_stack[index].rettime;
+		entry->rets[index].depth = index;
+		entry->rets[index].overrun = 0;
+	}
+	entry->depth = current->last_depth;
+	if (!call_filter_check_discard(call, entry, buffer, event))
+		trace_buffer_unlock_commit_nostack(buffer, event);
+}
+
 void trace_graph_return(struct ftrace_graph_ret *trace)
 {
 	struct trace_array *tr = graph_array;
@@ -488,7 +523,11 @@ void trace_graph_return(struct ftrace_graph_ret *trace)
 	disabled = atomic_inc_return(&data->disabled);
 	if (likely(disabled == 1)) {
 		pc = preempt_count();
-		__trace_graph_return(tr, trace, flags, pc);
+		trace_printk("trace_graph_return: %pf, %d\n", trace->func, trace->depth);
+		if (0)
+			__trace_graph_return(tr, trace, flags, pc);
+		else if (!trace->depth)
+			__trace_graph_return_batch(tr, trace, flags, pc);
 	}
 	atomic_dec(&data->disabled);
 	local_irq_restore(flags);
@@ -822,19 +861,15 @@ print_graph_duration(struct trace_array *tr, unsigned long long duration,
 /* Case of a leaf function on its call entry */
 static enum print_line_t
 print_graph_entry_leaf(struct trace_iterator *iter,
-		struct ftrace_graph_ent_entry *entry,
-		struct ftrace_graph_ret_entry *ret_entry,
+		struct ftrace_graph_ent *call,
+		struct ftrace_graph_ret *graph_ret,
 		struct trace_seq *s, u32 flags)
 {
 	struct fgraph_data *data = iter->private;
 	struct trace_array *tr = iter->tr;
-	struct ftrace_graph_ret *graph_ret;
-	struct ftrace_graph_ent *call;
 	unsigned long long duration;
 	int i;
 
-	graph_ret = &ret_entry->ret;
-	call = &entry->graph_ent;
 	duration = graph_ret->rettime - graph_ret->calltime;
 
 	if (data) {
@@ -874,10 +909,9 @@ print_graph_entry_leaf(struct trace_iterator *iter,
 
 static enum print_line_t
 print_graph_entry_nested(struct trace_iterator *iter,
-			 struct ftrace_graph_ent_entry *entry,
+			 struct ftrace_graph_ent *call,
 			 struct trace_seq *s, int cpu, u32 flags)
 {
-	struct ftrace_graph_ent *call = &entry->graph_ent;
 	struct fgraph_data *data = iter->private;
 	struct trace_array *tr = iter->tr;
 	int i;
@@ -1077,9 +1111,9 @@ print_graph_entry(struct ftrace_graph_ent_entry *field, struct trace_seq *s,
 
 	leaf_ret = get_return_for_leaf(iter, field);
 	if (leaf_ret)
-		ret = print_graph_entry_leaf(iter, field, leaf_ret, s, flags);
+		ret = print_graph_entry_leaf(iter, &field->graph_ent, &leaf_ret->ret, s, flags);
 	else
-		ret = print_graph_entry_nested(iter, field, s, cpu, flags);
+		ret = print_graph_entry_nested(iter, &field->graph_ent, s, cpu, flags);
 
 	if (data) {
 		/*
@@ -1163,6 +1197,24 @@ print_graph_return(struct ftrace_graph_ret *trace, struct trace_seq *s,
 			cpu, pid, flags);
 
 	return trace_handle_return(s);
+}
+
+static enum print_line_t
+print_graph_return_batch(struct ftrace_graph_ret_entry_batch *field, struct trace_seq *s,
+		   struct trace_entry *ent, struct trace_iterator *iter,
+		   u32 flags)
+{
+	int depth;
+
+	trace_seq_printf(s, "==================%d\n", field->depth);
+	for (depth = 0; depth < field->depth; depth++) {
+		struct ftrace_graph_ret *ret = &field->rets[depth];
+
+		trace_seq_printf(s, "%ps\n", (void *)ret->func);
+	}
+	trace_seq_printf(s, "==================\n");
+
+	return TRACE_TYPE_HANDLED;
 }
 
 static enum print_line_t
@@ -1282,6 +1334,11 @@ print_graph_function_flags(struct trace_iterator *iter, u32 flags)
 		struct ftrace_graph_ret_entry *field;
 		trace_assign_type(field, entry);
 		return print_graph_return(&field->ret, s, entry, iter, flags);
+	}
+	case TRACE_GRAPH_RET_BATCH: {
+		struct ftrace_graph_ret_entry_batch *field;
+		trace_assign_type(field, entry);
+		return print_graph_return_batch(field, s, entry, iter, flags);
 	}
 	case TRACE_STACK:
 	case TRACE_FN:

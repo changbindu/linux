@@ -46,6 +46,9 @@
 #undef __dynamic_array
 #define __dynamic_array(type, item)			type item[];
 
+#undef __dynamic_array_struct
+#define __dynamic_array_struct(type, item)		type item[];
+
 #undef F_STRUCT
 #define F_STRUCT(args...)				args
 
@@ -123,6 +126,14 @@ static void __always_unused ____ftrace_check_##name(void)		\
 	if (ret)							\
 		return ret;
 
+#undef __dynamic_array_struct
+#define __dynamic_array_struct(type, item)				\
+	ret = trace_define_field(event_call, #type, #item,		\
+				 offsetof(typeof(field), item),		\
+				 0, 0, filter_type);\
+	if (ret)							\
+		return ret;
+
 #undef FTRACE_ENTRY
 #define FTRACE_ENTRY(name, struct_name, id, tstruct, print, filter)	\
 static int __init							\
@@ -156,6 +167,9 @@ ftrace_define_fields_##name(struct trace_event_call *event_call)	\
 
 #undef __dynamic_array
 #define __dynamic_array(type, item)
+
+#undef __dynamic_array_struct
+#define __dynamic_array_struct(type, item)
 
 #undef F_printk
 #define F_printk(fmt, args...) __stringify(fmt) ", "  __stringify(args)
