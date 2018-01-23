@@ -775,6 +775,7 @@ struct ftrace_ret_stack {
 	unsigned long ret;
 	unsigned long func;
 	unsigned long long calltime;
+	unsigned long long rettime;
 #ifdef CONFIG_FUNCTION_PROFILER
 	unsigned long long subtime;
 #endif
@@ -810,6 +811,10 @@ unsigned long ftrace_graph_ret_addr(struct task_struct *task, int *idx,
 #define FTRACE_NOTRACE_DEPTH 65536
 #define FTRACE_RETFUNC_DEPTH 50
 #define FTRACE_RETSTACK_ALLOC_SIZE 32
+
+#define FTRACE_RETFUNC_LIST_BUFFER_ORDER 1
+#define FTRACE_RETFUNC_LIST_MAX_INDEX (PAGE_SIZE * FTRACE_RETFUNC_LIST_BUFFER_ORDER / sizeof(struct ftrace_graph_ret))
+
 extern int register_ftrace_graph(trace_func_graph_ret_t retfunc,
 				trace_func_graph_ent_t entryfunc);
 

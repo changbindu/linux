@@ -110,6 +110,28 @@ FTRACE_ENTRY_PACKED(funcgraph_exit, ftrace_graph_ret_entry,
 	FILTER_OTHER
 );
 
+/* Function return entry */
+FTRACE_ENTRY_PACKED(funcgraph_exit_batch, ftrace_graph_ret_entry_batch,
+
+	TRACE_GRAPH_RET_BATCH,
+
+	F_STRUCT(
+		__field(	int,				ret_count)
+		__field_desc(	unsigned long,	rets[0],	func	)
+		__field_desc(	unsigned long long, rets[0],	calltime)
+		__field_desc(	unsigned long long, rets[0],	rettime	)
+		__field_desc(	unsigned long,	rets[0],	overrun	)
+		__dynamic_array_struct(struct ftrace_graph_ret,	rets	)
+	),
+
+	F_printk("call stack: %lx (start: %llx  end: %llx) subcalls: %d",
+		 __entry->func,
+		 __entry->calltime, __entry->rettime,
+		 __entry->ret_count),
+
+	FILTER_OTHER
+);
+
 /*
  * Context switch trace entry - which task (and prio) we switched from/to:
  *

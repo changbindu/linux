@@ -36,6 +36,7 @@ enum trace_type {
 	TRACE_MMIO_MAP,
 	TRACE_BRANCH,
 	TRACE_GRAPH_RET,
+	TRACE_GRAPH_RET_BATCH,
 	TRACE_GRAPH_ENT,
 	TRACE_USER_STACK,
 	TRACE_BLK,
@@ -64,6 +65,9 @@ enum trace_type {
 
 #undef __dynamic_array
 #define __dynamic_array(type, item)	type	item[];
+
+#undef __dynamic_array_struct
+#define __dynamic_array_struct(type, item)	type	item[];
 
 #undef F_STRUCT
 #define F_STRUCT(args...)		args
@@ -350,6 +354,8 @@ extern void __ftrace_bad_type(void);
 			  TRACE_GRAPH_ENT);		\
 		IF_ASSIGN(var, ent, struct ftrace_graph_ret_entry,	\
 			  TRACE_GRAPH_RET);		\
+		IF_ASSIGN(var, ent, struct ftrace_graph_ret_entry_batch,\
+			  TRACE_GRAPH_RET_BATCH);	\
 		__ftrace_bad_type();					\
 	} while (0)
 

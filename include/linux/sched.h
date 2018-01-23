@@ -1027,6 +1027,10 @@ struct task_struct {
 	/* Stack of return addresses for return function tracing: */
 	struct ftrace_ret_stack		*ret_stack;
 
+	/* All of the ret entry of current stack for retbatch mode: */
+	struct ftrace_graph_ret 	*ret_list;
+	unsigned int			ret_list_index;
+
 	/* Timestamp for last schedule: */
 	unsigned long long		ftrace_timestamp;
 

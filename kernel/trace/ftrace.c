@@ -7058,9 +7058,10 @@ void unregister_ftrace_graph(void)
 }
 
 static DEFINE_PER_CPU(struct ftrace_ret_stack *, idle_ret_stack);
+static DEFINE_PER_CPU(struct ftrace_graph_ret *, idle_ret_list);
 
 static void
-graph_init_task(struct task_struct *t, struct ftrace_ret_stack *ret_stack)
+graph_init_task(struct task_struct *t, struct ftrace_ret_stack *ret_stack, struct ftrace_graph_ret *ret_list)
 {
 	atomic_set(&t->tracing_graph_pause, 0);
 	atomic_set(&t->trace_overrun, 0);
@@ -7068,6 +7069,8 @@ graph_init_task(struct task_struct *t, struct ftrace_ret_stack *ret_stack)
 	/* make curr_ret_stack visible before we add the ret_stack */
 	smp_wmb();
 	t->ret_stack = ret_stack;
+	t->ret_list = ret_list;
+	t->ret_list_index = 0;
 }
 
 /*
@@ -7086,6 +7089,7 @@ void ftrace_graph_init_idle_task(struct task_struct *t, int cpu)
 
 	if (ftrace_graph_active) {
 		struct ftrace_ret_stack *ret_stack;
+		struct ftrace_graph_ret *ret_list;
 
 		ret_stack = per_cpu(idle_ret_stack, cpu);
 		if (!ret_stack) {
@@ -7096,7 +7100,16 @@ void ftrace_graph_init_idle_task(struct task_struct *t, int cpu)
 				return;
 			per_cpu(idle_ret_stack, cpu) = ret_stack;
 		}
-		graph_init_task(t, ret_stack);
+
+		ret_list = per_cpu(idle_ret_list, cpu);
+		if (!ret_list) {
+			ret_list = __get_free_pages(GFP_KERNEL, FTRACE_RETFUNC_LIST_BUFFER_ORDER);
+			if (!ret_list)
+				return;
+			per_cpu(idle_ret_list, cpu) = ret_list;
+		}
+
+		graph_init_task(t, ret_stack, ret_list);
 	}
 }
 
@@ -7109,24 +7122,34 @@ void ftrace_graph_init_task(struct task_struct *t)
 
 	if (ftrace_graph_active) {
 		struct ftrace_ret_stack *ret_stack;
+		struct ftrace_graph_ret *ret_list;
 
 		ret_stack = kmalloc(FTRACE_RETFUNC_DEPTH
 				* sizeof(struct ftrace_ret_stack),
 				GFP_KERNEL);
 		if (!ret_stack)
 			return;
-		graph_init_task(t, ret_stack);
+
+		ret_list = __get_free_pages(GFP_KERNEL, FTRACE_RETFUNC_LIST_BUFFER_ORDER);
+		if (!ret_list) {
+			kfree(ret_stack);
+			return;
+		}
+		graph_init_task(t, ret_stack, ret_list);
 	}
 }
 
 void ftrace_graph_exit_task(struct task_struct *t)
 {
 	struct ftrace_ret_stack	*ret_stack = t->ret_stack;
+	struct ftrace_graph_ret	*ret_list = t->ret_list;
 
 	t->ret_stack = NULL;
+	t->ret_list = NULL;
 	/* NULL must become visible to IRQs before we free it: */
 	barrier();
 
 	kfree(ret_stack);
+	free_pages(ret_list, FTRACE_RETFUNC_LIST_BUFFER_ORDER);
 }
 #endif
