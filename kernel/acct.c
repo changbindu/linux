@@ -533,7 +533,7 @@ out:
 void acct_collect(long exitcode, int group_dead)
 {
 	struct pacct_struct *pacct = &current->signal->pacct;
-	u64 utime, stime;
+	struct task_cputime cputime;
 	unsigned long vsize = 0;
 
 	if (group_dead && current->mm) {
@@ -563,9 +563,9 @@ void acct_collect(long exitcode, int group_dead)
 	if (current->flags & PF_SIGNALED)
 		pacct->ac_flag |= AXSIG;
 
-	task_cputime(current, &utime, &stime);
-	pacct->ac_utime += utime;
-	pacct->ac_stime += stime;
+	task_cputime(current, &cputime);
+	pacct->ac_utime += cputime.utime;
+	pacct->ac_stime += cputime.stime;
 	pacct->ac_minflt += current->min_flt;
 	pacct->ac_majflt += current->maj_flt;
 	spin_unlock_irq(&current->sighand->siglock);

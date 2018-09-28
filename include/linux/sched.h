@@ -254,6 +254,7 @@ struct prev_cputime {
 struct task_cputime {
 	u64				utime;
 	u64				stime;
+	u64				gtime;
 	unsigned long long		sum_exec_runtime;
 };
 

@@ -292,7 +292,7 @@ static u64 read_sum_exec_runtime(struct task_struct *t)
 void thread_group_cputime(struct task_struct *tsk, struct task_cputime *times)
 {
 	struct signal_struct *sig = tsk->signal;
-	u64 utime, stime;
+	struct task_cputime cputime;
 	struct task_struct *t;
 	unsigned int seq, nextseq;
 	unsigned long flags;
@@ -316,12 +316,14 @@ void thread_group_cputime(struct task_struct *tsk, struct task_cputime *times)
 		flags = read_seqbegin_or_lock_irqsave(&sig->stats_lock, &seq);
 		times->utime = sig->utime;
 		times->stime = sig->stime;
+		times->gtime = sig->gtime;
 		times->sum_exec_runtime = sig->sum_sched_runtime;
 
 		for_each_thread(tsk, t) {
-			task_cputime(t, &utime, &stime);
-			times->utime += utime;
-			times->stime += stime;
+			task_cputime(t, &cputime);
+			times->utime += cputime.utime;
+			times->stime += cputime.stime;
+			times->gtime += cputime.gtime;
 			times->sum_exec_runtime += read_sum_exec_runtime(t);
 		}
 		/* If lockless access failed, take the lock. */
@@ -661,11 +663,9 @@ out:
 
 void task_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)
 {
-	struct task_cputime cputime = {
-		.sum_exec_runtime = p->se.sum_exec_runtime,
-	};
+	struct task_cputime cputime;
 
-	task_cputime(p, &cputime.utime, &cputime.stime);
+	task_cputime(p, &cputime);
 	cputime_adjust(&cputime, &p->prev_cputime, ut, st);
 }
 EXPORT_SYMBOL_GPL(task_cputime_adjusted);
@@ -832,49 +832,32 @@ void vtime_init_idle(struct task_struct *t, int cpu)
 	local_irq_restore(flags);
 }
 
-u64 task_gtime(struct task_struct *t)
-{
-	struct vtime *vtime = &t->vtime;
-	unsigned int seq;
-	u64 gtime;
-
-	if (!vtime_accounting_enabled())
-		return t->gtime;
-
-	do {
-		seq = read_seqcount_begin(&vtime->seqcount);
-
-		gtime = t->gtime;
-		if (vtime->state == VTIME_SYS && t->flags & PF_VCPU)
-			gtime += vtime->gtime + vtime_delta(vtime);
-
-	} while (read_seqcount_retry(&vtime->seqcount, seq));
-
-	return gtime;
-}
-
 /*
  * Fetch cputime raw values from fields of task_struct and
  * add up the pending nohz execution time since the last
  * cputime snapshot.
  */
-void task_cputime(struct task_struct *t, u64 *utime, u64 *stime)
+void task_cputime(struct task_struct *t, struct task_cputime *cputime)
 {
 	struct vtime *vtime = &t->vtime;
 	unsigned int seq;
 	u64 delta;
 
 	if (!vtime_accounting_enabled()) {
-		*utime = t->utime;
-		*stime = t->stime;
+		cputime->utime = t->utime;
+		cputime->stime = t->stime;
+		cputime->gtime = t->gtime;
+		cputime->sum_exec_runtime = t->se.sum_exec_runtime;
 		return;
 	}
 
 	do {
 		seq = read_seqcount_begin(&vtime->seqcount);
 
-		*utime = t->utime;
-		*stime = t->stime;
+		cputime->utime = t->utime;
+		cputime->stime = t->stime;
+		cputime->gtime = t->gtime;
+		cputime->sum_exec_runtime = t->se.sum_exec_runtime;
 
 		/* Task is sleeping, nothing to add */
 		if (vtime->state == VTIME_INACTIVE || is_idle_task(t))
@@ -886,10 +869,11 @@ void task_cputime(struct task_struct *t, u64 *utime, u64 *stime)
 		 * Task runs either in user or kernel space, add pending nohz time to
 		 * the right place.
 		 */
-		if (vtime->state == VTIME_USER || t->flags & PF_VCPU)
-			*utime += vtime->utime + delta;
-		else if (vtime->state == VTIME_SYS)
-			*stime += vtime->stime + delta;
+		if (vtime->state == VTIME_USER || t->flags & PF_VCPU) {
+			cputime->utime += vtime->utime + vtime->gtime +  delta;
+			cputime->gtime += vtime->gtime + delta;
+		} else if (vtime->state == VTIME_SYS)
+			cputime->stime += vtime->stime + delta;
 	} while (read_seqcount_retry(&vtime->seqcount, seq));
 }
 #endif /* CONFIG_VIRT_CPU_ACCOUNTING_GEN */

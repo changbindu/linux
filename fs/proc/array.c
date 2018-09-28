@@ -443,6 +443,7 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 	unsigned long cmin_flt = 0, cmaj_flt = 0;
 	unsigned long  min_flt = 0,  maj_flt = 0;
 	u64 cutime, cstime, utime, stime;
+	struct task_cputime cputime;
 	u64 cgtime, gtime;
 	unsigned long rsslim = 0;
 	unsigned long flags;
@@ -502,7 +503,8 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 			do {
 				min_flt += t->min_flt;
 				maj_flt += t->maj_flt;
-				gtime += task_gtime(t);
+				task_cputime(task, &cputime);
+				gtime += cputime.gtime;
 			} while_each_thread(task, t);
 
 			min_flt += sig->min_flt;
@@ -524,7 +526,8 @@ static int do_task_stat(struct seq_file *m, struct pid_namespace *ns,
 		min_flt = task->min_flt;
 		maj_flt = task->maj_flt;
 		task_cputime_adjusted(task, &utime, &stime);
-		gtime = task_gtime(task);
+		task_cputime(task, &cputime);
+		gtime = cputime.gtime;
 	}
 
 	/* scale priority and nice values from timeslices to -20..20 */

@@ -912,20 +912,20 @@ static int apm_cpu_idle(struct cpuidle_device *dev,
 	static int use_apm_idle; /* = 0 */
 	static unsigned int last_jiffies; /* = 0 */
 	static u64 last_stime; /* = 0 */
-	u64 stime, utime;
+	struct task_cputime cputime;
 
 	int apm_idle_done = 0;
 	unsigned int jiffies_since_last_check = jiffies - last_jiffies;
 	unsigned int bucket;
 
 recalc:
-	task_cputime(current, &utime, &stime);
+	task_cputime(current, &cputime);
 	if (jiffies_since_last_check > IDLE_CALC_LIMIT) {
 		use_apm_idle = 0;
 	} else if (jiffies_since_last_check > idle_period) {
 		unsigned int idle_percentage;
 
-		idle_percentage = nsecs_to_jiffies(stime - last_stime);
+		idle_percentage = nsecs_to_jiffies(cputime.stime - last_stime);
 		idle_percentage *= 100;
 		idle_percentage /= jiffies_since_last_check;
 		use_apm_idle = (idle_percentage > idle_threshold);
@@ -934,7 +934,7 @@ recalc:
 	}
 
 	last_jiffies = jiffies;
-	last_stime = stime;
+	last_stime = cputime.stime;
 
 	bucket = IDLE_LEAKY_MAX;
 

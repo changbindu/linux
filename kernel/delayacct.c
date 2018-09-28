@@ -93,14 +93,15 @@ void __delayacct_blkio_end(struct task_struct *p)
 
 int __delayacct_add_tsk(struct taskstats *d, struct task_struct *tsk)
 {
-	u64 utime, stime, stimescaled, utimescaled;
+	struct task_cputime cputime;
+	u64 stimescaled, utimescaled;
 	unsigned long long t2, t3;
 	unsigned long flags, t1;
 	s64 tmp;
 
-	task_cputime(tsk, &utime, &stime);
+	task_cputime(tsk, &cputime);
 	tmp = (s64)d->cpu_run_real_total;
-	tmp += utime + stime;
+	tmp += cputime.utime + cputime.stime;
 	d->cpu_run_real_total = (tmp < (s64)d->cpu_run_real_total) ? 0 : tmp;
 
 	task_cputime_scaled(tsk, &utimescaled, &stimescaled);

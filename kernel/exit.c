@@ -94,7 +94,7 @@ static void __exit_signal(struct task_struct *tsk)
 	bool group_dead = thread_group_leader(tsk);
 	struct sighand_struct *sighand;
 	struct tty_struct *uninitialized_var(tty);
-	u64 utime, stime;
+	struct task_cputime cputime;
 
 	sighand = rcu_dereference_check(tsk->sighand,
 					lockdep_tasklist_lock_is_held());
@@ -139,11 +139,11 @@ static void __exit_signal(struct task_struct *tsk)
 	 * but we want to avoid the race with thread_group_cputime() which can
 	 * see the empty ->thread_head list.
 	 */
-	task_cputime(tsk, &utime, &stime);
+	task_cputime(tsk, &cputime);
 	write_seqlock(&sig->stats_lock);
-	sig->utime += utime;
-	sig->stime += stime;
-	sig->gtime += task_gtime(tsk);
+	sig->utime += cputime.utime;
+	sig->stime += cputime.stime;
+	sig->gtime += cputime.gtime;
 	sig->min_flt += tsk->min_flt;
 	sig->maj_flt += tsk->maj_flt;
 	sig->nvcsw += tsk->nvcsw;
@@ -1090,6 +1090,7 @@ static int wait_task_zombie(struct wait_opts *wo, struct task_struct *p)
 	if (state == EXIT_DEAD && thread_group_leader(p)) {
 		struct signal_struct *sig = p->signal;
 		struct signal_struct *psig = current->signal;
+		struct task_cputime cputime;
 		unsigned long maxrss;
 		u64 tgutime, tgstime;
 
@@ -1114,11 +1115,12 @@ static int wait_task_zombie(struct wait_opts *wo, struct task_struct *p)
 		 * in the group including the group leader.
 		 */
 		thread_group_cputime_adjusted(p, &tgutime, &tgstime);
+		task_cputime(p, &cputime);
 		spin_lock_irq(&current->sighand->siglock);
 		write_seqlock(&psig->stats_lock);
 		psig->cutime += tgutime + sig->cutime;
 		psig->cstime += tgstime + sig->cstime;
-		psig->cgtime += task_gtime(p) + sig->gtime + sig->cgtime;
+		psig->cgtime += cputime.gtime + sig->gtime + sig->cgtime;
 		psig->cmin_flt +=
 			p->min_flt + sig->min_flt + sig->cmin_flt;
 		psig->cmaj_flt +=

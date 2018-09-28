@@ -33,7 +33,8 @@ void bacct_add_tsk(struct user_namespace *user_ns,
 		   struct taskstats *stats, struct task_struct *tsk)
 {
 	const struct cred *tcred;
-	u64 utime, stime, utimescaled, stimescaled;
+	struct task_cputime cputime;
+	u64 utimescaled, stimescaled;
 	u64 delta;
 
 	BUILD_BUG_ON(TS_COMM_LEN < TASK_COMM_LEN);
@@ -68,9 +69,9 @@ void bacct_add_tsk(struct user_namespace *user_ns,
 		task_tgid_nr_ns(rcu_dereference(tsk->real_parent), pid_ns) : 0;
 	rcu_read_unlock();
 
-	task_cputime(tsk, &utime, &stime);
-	stats->ac_utime = div_u64(utime, NSEC_PER_USEC);
-	stats->ac_stime = div_u64(stime, NSEC_PER_USEC);
+	task_cputime(tsk, &cputime);
+	stats->ac_utime = div_u64(cputime.utime, NSEC_PER_USEC);
+	stats->ac_stime = div_u64(cputime.stime, NSEC_PER_USEC);
 
 	task_cputime_scaled(tsk, &utimescaled, &stimescaled);
 	stats->ac_utimescaled = div_u64(utimescaled, NSEC_PER_USEC);
@@ -154,12 +155,12 @@ static void __acct_update_integrals(struct task_struct *tsk,
  */
 void acct_update_integrals(struct task_struct *tsk)
 {
-	u64 utime, stime;
+	struct task_cputime cputime;
 	unsigned long flags;
 
 	local_irq_save(flags);
-	task_cputime(tsk, &utime, &stime);
-	__acct_update_integrals(tsk, utime, stime);
+	task_cputime(tsk, &cputime);
+	__acct_update_integrals(tsk, cputime.utime, cputime.stime);
 	local_irq_restore(flags);
 }
 

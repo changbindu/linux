@@ -107,19 +107,19 @@ static inline int task_cputime_zero(const struct task_cputime *cputime)
 
 static inline u64 prof_ticks(struct task_struct *p)
 {
-	u64 utime, stime;
+	struct task_cputime cputime;
 
-	task_cputime(p, &utime, &stime);
+	task_cputime(p, &cputime);
 
-	return utime + stime;
+	return cputime.utime + cputime.stime;
 }
 static inline u64 virt_ticks(struct task_struct *p)
 {
-	u64 utime, stime;
+	struct task_cputime cputime;
 
-	task_cputime(p, &utime, &stime);
+	task_cputime(p, &cputime);
 
-	return utime;
+	return cputime.utime;
 }
 
 static int
@@ -1091,8 +1091,7 @@ static inline int fastpath_timer_check(struct task_struct *tsk)
 	if (!task_cputime_zero(&tsk->cputime_expires)) {
 		struct task_cputime task_sample;
 
-		task_cputime(tsk, &task_sample.utime, &task_sample.stime);
-		task_sample.sum_exec_runtime = tsk->se.sum_exec_runtime;
+		task_cputime(tsk, &task_sample);
 		if (task_cputime_expired(&task_sample, &tsk->cputime_expires))
 			return 1;
 	}

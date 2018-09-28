@@ -19,19 +19,15 @@
 
 #ifdef CONFIG_VIRT_CPU_ACCOUNTING_GEN
 extern void task_cputime(struct task_struct *t,
-			 u64 *utime, u64 *stime);
-extern u64 task_gtime(struct task_struct *t);
+			 struct task_cputime *cputime);
 #else
 static inline void task_cputime(struct task_struct *t,
-				u64 *utime, u64 *stime)
+				struct task_cputime *cputime)
 {
-	*utime = t->utime;
-	*stime = t->stime;
-}
-
-static inline u64 task_gtime(struct task_struct *t)
-{
-	return t->gtime;
+	cputime->utime = t->utime;
+	cputime->stime = t->stime;
+	cputime->gtime = t->gtime;
+	cputime->sum_exec_runtime = t->se.sum_exec_runtime;
 }
 #endif
 
@@ -48,7 +44,11 @@ static inline void task_cputime_scaled(struct task_struct *t,
 				       u64 *utimescaled,
 				       u64 *stimescaled)
 {
-	task_cputime(t, utimescaled, stimescaled);
+	struct task_cputime cputime;
+
+	task_cputime(t, &cputime);
+	*utimescaled = cputime.utime;
+	*stimescaled = cputime.stime;
 }
 #endif
 

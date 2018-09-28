@@ -207,7 +207,8 @@ static int fill_stats_for_tgid(pid_t tgid, struct taskstats *stats)
 	struct task_struct *tsk, *first;
 	unsigned long flags;
 	int rc = -ESRCH;
-	u64 delta, utime, stime;
+	struct task_cputime cputime;
+	u64 delta;
 	u64 start_time;
 
 	/*
@@ -244,9 +245,9 @@ static int fill_stats_for_tgid(pid_t tgid, struct taskstats *stats)
 		do_div(delta, NSEC_PER_USEC);
 		stats->ac_etime += delta;
 
-		task_cputime(tsk, &utime, &stime);
-		stats->ac_utime += div_u64(utime, NSEC_PER_USEC);
-		stats->ac_stime += div_u64(stime, NSEC_PER_USEC);
+		task_cputime(tsk, &cputime);
+		stats->ac_utime += div_u64(cputime.utime, NSEC_PER_USEC);
+		stats->ac_stime += div_u64(cputime.stime, NSEC_PER_USEC);
 
 		stats->nvcsw += tsk->nvcsw;
 		stats->nivcsw += tsk->nivcsw;

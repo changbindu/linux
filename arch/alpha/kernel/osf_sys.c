@@ -1143,7 +1143,7 @@ struct rusage32 {
 SYSCALL_DEFINE2(osf_getrusage, int, who, struct rusage32 __user *, ru)
 {
 	struct rusage32 r;
-	u64 utime, stime;
+	struct task_cputime cputime;
 	unsigned long utime_jiffies, stime_jiffies;
 
 	if (who != RUSAGE_SELF && who != RUSAGE_CHILDREN)
@@ -1152,9 +1152,9 @@ SYSCALL_DEFINE2(osf_getrusage, int, who, struct rusage32 __user *, ru)
 	memset(&r, 0, sizeof(r));
 	switch (who) {
 	case RUSAGE_SELF:
-		task_cputime(current, &utime, &stime);
-		utime_jiffies = nsecs_to_jiffies(utime);
-		stime_jiffies = nsecs_to_jiffies(stime);
+		task_cputime(current, &cputime);
+		utime_jiffies = nsecs_to_jiffies(cputime.utime);
+		stime_jiffies = nsecs_to_jiffies(cputime.stime);
 		jiffies_to_timeval32(utime_jiffies, &r.ru_utime);
 		jiffies_to_timeval32(stime_jiffies, &r.ru_stime);
 		r.ru_minflt = current->min_flt;
