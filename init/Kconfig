@@ -1107,6 +1107,7 @@ config CC_OPTIMIZE_FOR_SIZE
 
 config CC_OPTIMIZE_FOR_DEBUGGING
 	bool "Optimize for better debugging experience (-Og)"
+	depends on CC_IS_GCC
 	depends on $(cc-option,-Og)
 	select NO_AUTO_INLINE
 	help
