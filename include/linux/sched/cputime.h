@@ -52,10 +52,24 @@ static inline void task_cputime_scaled(struct task_struct *t,
 }
 #endif
 
+
+#ifdef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
+void inline thread_group_cputime_adjusted(struct task_struct *p, struct task_cputime *cputime)
+{
+	thread_group_cputime(p, cputime);
+}
+
+void inline task_cputime_adjusted(struct task_struct *p, struct task_cputime *cputime)
+{
+	task_cputime(p, cputime);
+}
+
+void inline cputime_adjust(struct task_cputime *cputime, struct prev_cputime *prev) { }
+#else
 extern void task_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st);
 extern void thread_group_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st);
-extern void cputime_adjust(struct task_cputime *curr, struct prev_cputime *prev,
-			   u64 *ut, u64 *st);
+extern void cputime_adjust(struct task_cputime *cputime, struct prev_cputime *prev);
+#endif
 
 /*
  * Thread group CPU time accounting.
@@ -178,7 +192,7 @@ static inline void account_group_exec_runtime(struct task_struct *tsk,
 static inline void prev_cputime_init(struct prev_cputime *prev)
 {
 #ifndef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
-	prev->utime = prev->stime = 0;
+	prev->utime = prev->stime = prev->gtime = 0;
 	raw_spin_lock_init(&prev->lock);
 #endif
 }

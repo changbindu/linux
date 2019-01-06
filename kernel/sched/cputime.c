@@ -442,30 +442,6 @@ void vtime_account_irq_enter(struct task_struct *tsk)
 EXPORT_SYMBOL_GPL(vtime_account_irq_enter);
 #endif /* __ARCH_HAS_VTIME_ACCOUNT */
 
-void cputime_adjust(struct task_cputime *curr, struct prev_cputime *prev,
-		    u64 *ut, u64 *st)
-{
-	*ut = curr->utime;
-	*st = curr->stime;
-}
-
-void task_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)
-{
-	*ut = p->utime;
-	*st = p->stime;
-}
-EXPORT_SYMBOL_GPL(task_cputime_adjusted);
-
-void thread_group_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)
-{
-	struct task_cputime cputime;
-
-	thread_group_cputime(p, &cputime);
-
-	*ut = cputime.utime;
-	*st = cputime.stime;
-}
-
 #else /* !CONFIG_VIRT_CPU_ACCOUNTING_NATIVE: */
 
 /*
@@ -585,19 +561,19 @@ drop_precision:
  * This code provides the following guarantees:
  *
  *   stime + utime == rtime
- *   stime_i+1 >= stime_i, utime_i+1 >= utime_i
+ *   utime >= gtime
+ *   stime_i+1 >= stime_i, utime_i+1 >= utime_i, gtime_i+1 >= gtime_i
  *
  * Assuming that rtime_i+1 >= rtime_i.
  */
-void cputime_adjust(struct task_cputime *curr, struct prev_cputime *prev,
-		    u64 *ut, u64 *st)
+void cputime_adjust(struct task_cputime *cputime, struct prev_cputime *prev)
 {
-	u64 rtime, stime, utime;
+	u64 rtime, stime, utime, gtime;
 	unsigned long flags;
 
 	/* Serialize concurrent callers such that we can honour our guarantees */
 	raw_spin_lock_irqsave(&prev->lock, flags);
-	rtime = curr->sum_exec_runtime;
+	rtime = cputime->sum_exec_runtime;
 
 	/*
 	 * This is possible under two circumstances:
@@ -610,8 +586,9 @@ void cputime_adjust(struct task_cputime *curr, struct prev_cputime *prev,
 	if (prev->stime + prev->utime >= rtime)
 		goto out;
 
-	stime = curr->stime;
-	utime = curr->utime;
+	stime = cputime->stime;
+	utime = cputime->utime;
+	gtime = cputime->gtime;
 
 	/*
 	 * If either stime or utime are 0, assume all runtime is userspace.
@@ -653,29 +630,31 @@ update:
 		stime = rtime - utime;
 	}
 
+	gtime = scale_stime(gtime, utime, cputime->utime);
+	if (gtime < prev->gtime)
+		gtime = prev->gtime;
+
 	prev->stime = stime;
 	prev->utime = utime;
+	prev->gtime = gtime;
 out:
-	*ut = prev->utime;
-	*st = prev->stime;
+	cputime->utime = prev->utime;
+	cputime->stime = prev->stime;
+	cputime->gtime = prev->gtime;
 	raw_spin_unlock_irqrestore(&prev->lock, flags);
 }
 
-void task_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)
+void task_cputime_adjusted(struct task_struct *p, struct task_cputime *cputime)
 {
-	struct task_cputime cputime;
-
-	task_cputime(p, &cputime);
-	cputime_adjust(&cputime, &p->prev_cputime, ut, st);
+	task_cputime(p, cputime);
+	cputime_adjust(cputime, &p->prev_cputime);
 }
 EXPORT_SYMBOL_GPL(task_cputime_adjusted);
 
-void thread_group_cputime_adjusted(struct task_struct *p, u64 *ut, u64 *st)
+void thread_group_cputime_adjusted(struct task_struct *p, struct task_cputime *cputime)
 {
-	struct task_cputime cputime;
-
-	thread_group_cputime(p, &cputime);
-	cputime_adjust(&cputime, &p->signal->prev_cputime, ut, st);
+	thread_group_cputime(p, cputime);
+	cputime_adjust(cputime, &p->signal->prev_cputime);
 }
 #endif /* !CONFIG_VIRT_CPU_ACCOUNTING_NATIVE */
 

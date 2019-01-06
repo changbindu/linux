@@ -395,14 +395,18 @@ void __cgroup_account_cputime_field(struct cgroup *cgrp,
 void cgroup_base_stat_cputime_show(struct seq_file *seq)
 {
 	struct cgroup *cgrp = seq_css(seq)->cgroup;
+	struct task_cputime cputime;
 	u64 usage, utime, stime;
 
 	if (!cgroup_parent(cgrp))
 		return;
 
 	cgroup_rstat_flush_hold(cgrp);
-	usage = cgrp->bstat.cputime.sum_exec_runtime;
-	cputime_adjust(&cgrp->bstat.cputime, &cgrp->prev_cputime, &utime, &stime);
+	cputime = cgrp->bstat.cputime;
+	cputime_adjust(&cputime, &cgrp->prev_cputime);
+	usage = cputime.sum_exec_runtime;
+	utime = cputime.utime;
+	stime = cputime.stime;
 	cgroup_rstat_flush_release();
 
 	do_div(usage, NSEC_PER_USEC);

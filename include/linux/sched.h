@@ -237,6 +237,7 @@ struct prev_cputime {
 #ifndef CONFIG_VIRT_CPU_ACCOUNTING_NATIVE
 	u64				utime;
 	u64				stime;
+	u64				gtime;
 	raw_spinlock_t			lock;
 #endif
 };
