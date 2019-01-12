@@ -361,6 +361,19 @@ struct dyn_ftrace {
 	struct dyn_arch_ftrace	arch;
 };
 
+struct func_param {
+	char *name;
+	uint8_t type;
+	uint8_t loc[2];
+} __packed;
+
+struct func_prototype {
+	unsigned long ip;
+	uint8_t ret_type;
+	uint8_t nr_param;
+	struct func_param params[0];
+} __packed;
+
 int ftrace_force_update(void);
 int ftrace_set_filter_ip(struct ftrace_ops *ops, unsigned long ip,
 			 int remove, int reset);
@@ -721,6 +734,11 @@ static inline void ftrace_init(void) { }
 struct ftrace_graph_ent {
 	unsigned long func; /* Current function */
 	int depth;
+	uint8_t nr_param;
+#define FTRACE_MAX_PARAMS 10
+	char *param_names[FTRACE_MAX_PARAMS];
+	uint8_t param_types[FTRACE_MAX_PARAMS];
+	unsigned long param_values[FTRACE_MAX_PARAMS];
 } __packed;
 
 /*
@@ -734,14 +752,20 @@ struct ftrace_graph_ret {
 	unsigned long overrun;
 	unsigned long long calltime;
 	unsigned long long rettime;
+	uint8_t ret_type;
+	unsigned long retval;
 	int depth;
 } __packed;
 
+#define FTRACE_PROTOTYPE_SIGNED(t)	(t & BIT(7))
+#define FTRACE_PROTOTYPE_SIZE(t)	(t & GENMASK(6, 0))
+
 /* Type of the callback handlers for tracing function graph*/
 typedef void (*trace_func_graph_ret_t)(struct ftrace_graph_ret *); /* return */
-typedef int (*trace_func_graph_ent_t)(struct ftrace_graph_ent *); /* entry */
+typedef int (*trace_func_graph_ent_t)(struct ftrace_graph_ent *, struct pt_regs *); /* entry */
 
-extern int ftrace_graph_entry_stub(struct ftrace_graph_ent *trace);
+extern int ftrace_graph_entry_stub(struct ftrace_graph_ent *trace,
+				   struct pt_regs *regs);
 
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
 
@@ -779,7 +803,8 @@ extern void return_to_handler(void);
 
 extern int
 function_graph_enter(unsigned long ret, unsigned long func,
-		     unsigned long frame_pointer, unsigned long *retp);
+		     unsigned long frame_pointer, unsigned long *retp,
+		     struct pt_regs *regs);
 
 struct ftrace_ret_stack *
 ftrace_graph_get_ret_stack(struct task_struct *task, int idx);

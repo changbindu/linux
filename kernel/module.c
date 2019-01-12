@@ -360,6 +360,18 @@ static void *section_addr(const struct load_info *info, const char *name)
 	return (void *)info->sechdrs[find_sec(info, name)].sh_addr;
 }
 
+/* Get info of a module section. */
+static void *section_info(const struct load_info *info,
+			  const char *name,
+			  size_t *size)
+{
+	unsigned int sec = find_sec(info, name);
+
+	/* Section 0 has sh_addr 0 and sh_size 0. */
+	*size = info->sechdrs[sec].sh_size;
+	return (void *)info->sechdrs[sec].sh_addr;
+}
+
 /* Find a module section, or NULL.  Fill in number of "objects" in section. */
 static void *section_objs(const struct load_info *info,
 			  const char *name,
@@ -3139,6 +3151,10 @@ static int find_module_sections(struct module *mod, struct load_info *info)
 	mod->ftrace_callsites = section_objs(info, "__mcount_loc",
 					     sizeof(*mod->ftrace_callsites),
 					     &mod->num_ftrace_callsites);
+#endif
+#ifdef CONFIG_HAVE_FTRACE_FUNC_PROTO
+	mod->funcproto_start = section_info(info, "__funcproto",
+					     &mod->funcproto_sec_size);
 #endif
 #ifdef CONFIG_FUNCTION_ERROR_INJECTION
 	mod->ei_funcs = section_objs(info, "_error_injection_whitelist",

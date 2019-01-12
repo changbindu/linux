@@ -12,6 +12,7 @@
 #include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/fs.h>
+#include <asm-generic/dwarf.h>
 
 #include "trace.h"
 #include "trace_output.h"
@@ -124,10 +125,71 @@ static inline int ftrace_graph_ignore_irqs(void)
 	return in_irq();
 }
 
-int trace_graph_entry(struct ftrace_graph_ent *trace)
+static void trace_graph_record_params(struct ftrace_graph_ent *trace,
+				      struct func_prototype *proto,
+				      struct pt_regs *pt_regs)
+{
+	int i;
+
+	trace->nr_param = proto->nr_param;
+	for (i = 0; i < proto->nr_param; i++) {
+		struct func_param *param = &proto->params[i];
+		unsigned long value = 0;
+
+		trace->param_types[i] = param->type;
+		trace->param_names[i] = param->name;
+
+		switch (param->loc[0])
+		{
+		case DW_OP_reg1:
+			value = pt_regs->dx;
+			break;
+		case DW_OP_reg2:
+			value = pt_regs->cx;
+			break;
+		case DW_OP_reg3:
+			value = pt_regs->bx;
+			break;
+		case DW_OP_reg4:
+			value = pt_regs->si;
+			break;
+		case DW_OP_reg5:
+			value = pt_regs->di;
+			break;
+		case DW_OP_reg6:
+			value = pt_regs->bp;
+			break;
+		case DW_OP_reg8:
+			value = pt_regs->r8;
+			break;
+		case DW_OP_reg9:
+			value = pt_regs->r9;
+			break;
+		case DW_OP_fbreg:
+			if (probe_kernel_read(&value,
+					(void *)pt_regs->bp + param->loc[1],
+					sizeof(value)))
+				trace->param_types[i] = 0;
+			break;
+		case DW_OP_breg7:
+			if (probe_kernel_read(&value,
+					(void *)pt_regs->sp + param->loc[1],
+					sizeof(value)))
+				trace->param_types[i] = 0;
+			break;
+		default:
+			/* unexpected loc expression， skip it. */
+			trace->param_types[i] = 0;
+		}
+		trace->param_values[i] = value;
+	}
+}
+
+int trace_graph_entry(struct ftrace_graph_ent *trace, struct pt_regs *pt_regs)
 {
 	struct trace_array *tr = graph_array;
 	struct trace_array_cpu *data;
+	struct ftrace_func_entry *ent;
 	unsigned long flags;
 	long disabled;
 	int ret;
@@ -168,6 +230,12 @@ int trace_graph_entry(struct ftrace_graph_ent *trace)
 	 */
 	if (tracing_thresh)
 		return 1;
+
+	if ((tr->trace_flags & TRACE_ITER_RECORD_FUNCPROTO) &&
+	    (ent = ftrace_lookup_ip(ftrace_prototype_hash, trace->func)))
+		trace_graph_record_params(trace, ent->priv, pt_regs);
+	else
+		trace->nr_param = 0;
 
 	local_irq_save(flags);
 	cpu = raw_smp_processor_id();
@@ -238,6 +306,7 @@ void trace_graph_return(struct ftrace_graph_ret *trace)
 {
 	struct trace_array *tr = graph_array;
 	struct trace_array_cpu *data;
+	struct ftrace_func_entry *ent;
 	unsigned long flags;
 	long disabled;
 	int cpu;
@@ -249,6 +318,12 @@ void trace_graph_return(struct ftrace_graph_ret *trace)
 		trace_recursion_clear(TRACE_GRAPH_NOTRACE_BIT);
 		return;
 	}
+
+	if ((tr->trace_flags & TRACE_ITER_RECORD_FUNCPROTO) &&
+	    (ent = ftrace_lookup_ip(ftrace_prototype_hash, trace->func)))
+		trace->ret_type = ((struct func_prototype *)ent->priv)->ret_type;
+	else
+		trace->ret_type = 0;
 
 	local_irq_save(flags);
 	cpu = raw_smp_processor_id();
@@ -621,6 +696,78 @@ print_graph_duration(struct trace_array *tr, unsigned long long duration,
 	trace_seq_puts(s, "|  ");
 }
 
+static void print_typed_val(struct trace_seq *s, unsigned long val, uint8_t type)
+{
+	/* Don't show complex types */
+	if (FTRACE_PROTOTYPE_SIZE(type) > sizeof(long)) {
+		trace_seq_printf(s, "{..}");
+		return;
+	}
+
+	switch (FTRACE_PROTOTYPE_SIZE(type)) {
+		case 0:
+			trace_seq_printf(s, "?");
+			break;
+		case 1:
+			val &= GENMASK_ULL(7, 0);
+			if (FTRACE_PROTOTYPE_SIGNED(type))
+				trace_seq_printf(s, "%d", (char)val);
+			else
+				trace_seq_printf(s, "0x%02lx", val);
+			break;
+		case 2:
+			val &= GENMASK_ULL(15, 0);
+			if (FTRACE_PROTOTYPE_SIGNED(type))
+				trace_seq_printf(s, "%d", (short)val);
+			else
+				trace_seq_printf(s, "0x%04lx", val);
+			break;
+		case 4:
+			val &= GENMASK_ULL(31, 0);
+			if (FTRACE_PROTOTYPE_SIGNED(type))
+				trace_seq_printf(s, "%d", (int)val);
+			else
+				trace_seq_printf(s, "0x%08lx", val);
+			break;
+		case 8:
+			val &= GENMASK_ULL(63, 0);
+			if (FTRACE_PROTOTYPE_SIGNED(type))
+				trace_seq_printf(s, "%lld", (long long)val);
+			else
+				trace_seq_printf(s, "0x%016lx", val);
+			break;
+		default:
+			trace_seq_printf(s, "{badsize}");
+	}
+}
+
+static void print_graph_retval(struct trace_seq *s, unsigned long val,
+			       uint8_t type, bool comment)
+{
+	if (comment)
+		trace_seq_printf(s, " /* ");
+
+	trace_seq_printf(s, "ret=");
+	print_typed_val(s, val, type);
+
+	if (comment)
+		trace_seq_printf(s, " */");
+}
+
+static void print_graph_params(struct trace_seq *s, struct ftrace_graph_ent *call)
+{
+	int i;
+
+	trace_seq_printf(s, "%ps(", (void *)call->func);
+	for (i = 0; i < call->nr_param; i++) {
+		if (i > 0)
+			trace_seq_printf(s, ", ");
+		trace_seq_printf(s, "%s=", call->param_names[i]);
+		print_typed_val(s, call->param_values[i], call->param_types[i]);
+	}
+	trace_seq_printf(s, ")");
+}
+
 /* Case of a leaf function on its call entry */
 static enum print_line_t
 print_graph_entry_leaf(struct trace_iterator *iter,
@@ -665,7 +812,11 @@ print_graph_entry_leaf(struct trace_iterator *iter,
 	for (i = 0; i < call->depth * TRACE_GRAPH_INDENT; i++)
 		trace_seq_putc(s, ' ');
 
-	trace_seq_printf(s, "%ps();\n", (void *)call->func);
+	print_graph_params(s, call);
+	trace_seq_printf(s, ";");
+	if (graph_ret->ret_type)
+		print_graph_retval(s, graph_ret->retval, graph_ret->ret_type, true);
+	trace_seq_puts(s, "\n");
 
 	print_graph_irq(iter, graph_ret->func, TRACE_GRAPH_RET,
 			cpu, iter->ent->pid, flags);
@@ -703,7 +854,8 @@ print_graph_entry_nested(struct trace_iterator *iter,
 	for (i = 0; i < call->depth * TRACE_GRAPH_INDENT; i++)
 		trace_seq_putc(s, ' ');
 
-	trace_seq_printf(s, "%ps() {\n", (void *)call->func);
+	print_graph_params(s, call);
+	trace_seq_printf(s, " {\n");
 
 	if (trace_seq_has_overflowed(s))
 		return TRACE_TYPE_PARTIAL_LINE;
@@ -950,10 +1102,19 @@ print_graph_return(struct ftrace_graph_ret *trace, struct trace_seq *s,
 	 * belongs to, write out the function name. Always do
 	 * that if the funcgraph-tail option is enabled.
 	 */
-	if (func_match && !(flags & TRACE_GRAPH_PRINT_TAIL))
-		trace_seq_puts(s, "}\n");
-	else
-		trace_seq_printf(s, "} /* %ps */\n", (void *)trace->func);
+	if (func_match && !(flags & TRACE_GRAPH_PRINT_TAIL)) {
+		trace_seq_puts(s, "}");
+		if (trace->ret_type)
+			print_graph_retval(s, trace->retval, trace->ret_type, true);
+		trace_seq_puts(s, "\n");
+	} else {
+		trace_seq_printf(s, "} /* %ps", (void *)trace->func);
+		if (trace->ret_type) {
+			trace_seq_puts(s, ", ");
+			print_graph_retval(s, trace->retval, trace->ret_type, false);
+		}
+		trace_seq_puts(s, " */\n");
+	}
 
 	/* Overrun */
 	if (flags & TRACE_GRAPH_PRINT_OVERRUN)

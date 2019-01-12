@@ -259,6 +259,7 @@ ENDPROC(ftrace_graph_regs_caller)
 	.globl return_to_handler
 return_to_handler:
 	stmdb	sp!, {r0-r3}
+	mov	r1, r0			@ return value
 	mov	r0, fp			@ frame pointer
 	bl	ftrace_return_to_handler
 	mov	lr, r0			@ r0 has real ret addr

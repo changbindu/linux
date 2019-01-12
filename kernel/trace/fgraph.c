@@ -14,6 +14,7 @@
 #include <trace/events/sched.h>
 
 #include "ftrace_internal.h"
+#include "trace.h"
 
 #ifdef CONFIG_DYNAMIC_FTRACE
 #define ASSIGN_OPS_HASH(opsname, val) \
@@ -97,7 +98,8 @@ ftrace_push_return_trace(unsigned long ret, unsigned long func,
 }
 
 int function_graph_enter(unsigned long ret, unsigned long func,
-			 unsigned long frame_pointer, unsigned long *retp)
+			 unsigned long frame_pointer, unsigned long *retp,
+			 struct pt_regs *regs)
 {
 	struct ftrace_graph_ent trace;
 
@@ -108,7 +110,7 @@ int function_graph_enter(unsigned long ret, unsigned long func,
 		goto out;
 
 	/* Only trace if the calling function expects to */
-	if (!ftrace_graph_entry(&trace))
+	if (!ftrace_graph_entry(&trace, regs))
 		goto out_ret;
 
 	return 0;
@@ -206,13 +208,16 @@ static struct notifier_block ftrace_suspend_notifier = {
  * Send the trace to the ring-buffer.
  * @return the original return address.
  */
-unsigned long ftrace_return_to_handler(unsigned long frame_pointer)
+static unsigned long _ftrace_return_to_handler(unsigned long frame_pointer,
+					       unsigned long retval)
 {
 	struct ftrace_graph_ret trace;
 	unsigned long ret;
 
 	ftrace_pop_return_trace(&trace, &ret, frame_pointer);
 	trace.rettime = trace_clock_local();
+	trace.retval = retval;
+
 	ftrace_graph_return(&trace);
 	/*
 	 * The ftrace_graph_return() may still access the current
@@ -231,6 +236,19 @@ unsigned long ftrace_return_to_handler(unsigned long frame_pointer)
 
 	return ret;
 }
+
+#if defined(CONFIG_HAVE_FTRACE_FUNC_PROTO)
+unsigned long ftrace_return_to_handler(unsigned long frame_pointer,
+				       unsigned long retval)
+{
+	return _ftrace_return_to_handler(frame_pointer, retval);
+}
+#else
+unsigned long ftrace_return_to_handler(unsigned long frame_pointer)
+{
+	return _ftrace_return_to_handler(frame_pointer, 0);
+}
+#endif
 
 /**
  * ftrace_graph_get_ret_stack - return the entry of the shadow stack
@@ -327,7 +345,7 @@ void ftrace_graph_sleep_time_control(bool enable)
 	fgraph_sleep_time = enable;
 }
 
-int ftrace_graph_entry_stub(struct ftrace_graph_ent *trace)
+int ftrace_graph_entry_stub(struct ftrace_graph_ent *trace, struct pt_regs *regs)
 {
 	return 0;
 }
@@ -417,11 +435,11 @@ ftrace_graph_probe_sched_switch(void *ignore, bool preempt,
 		next->ret_stack[index].calltime += timestamp;
 }
 
-static int ftrace_graph_entry_test(struct ftrace_graph_ent *trace)
+static int ftrace_graph_entry_test(struct ftrace_graph_ent *trace, struct pt_regs *regs)
 {
 	if (!ftrace_ops_test(&global_ops, trace->func, NULL))
 		return 0;
-	return __ftrace_graph_entry(trace);
+	return __ftrace_graph_entry(trace, regs);
 }
 
 /*

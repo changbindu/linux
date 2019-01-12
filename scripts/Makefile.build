@@ -199,6 +199,14 @@ cmd_record_mcount = $(if $(findstring $(strip $(CC_FLAGS_FTRACE)),$(_c_flags)),	
 endif # CC_USING_RECORD_MCOUNT
 endif # CONFIG_FTRACE_MCOUNT_RECORD
 
+cmd_funcprototype = \
+if $(OBJDUMP) -h $@ | grep -q __mcount_loc; then	\
+	$(srctree)/scripts/ftrace/funcprototype "$(@)" | $(CC) $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS) -c -o $(@D)/.tmp_$(@F:.o=.funcprototype) -x assembler -; \
+	$(LD) $(ld_flags) -r -o $(@D)/.tmp_$(@F) $@ $(@D)/.tmp_$(@F:.o=.funcprototype); \
+	mv -f $(@D)/.tmp_$(@F) $@; \
+	rm -f $(@D)/.tmp_$(@F:.o=.funcprototype); \
+fi
+
 ifdef CONFIG_STACK_VALIDATION
 ifneq ($(SKIP_STACK_VALIDATION),1)
 
@@ -252,6 +260,7 @@ define rule_cc_o_c
 	$(call cmd,objtool)
 	$(call cmd,modversions_c)
 	$(call cmd,record_mcount)
+	$(call cmd,funcprototype)
 endef
 
 define rule_as_o_S

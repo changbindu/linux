@@ -477,7 +477,10 @@ struct module {
 	unsigned int num_ftrace_callsites;
 	unsigned long *ftrace_callsites;
 #endif
-
+#ifdef CONFIG_HAVE_FTRACE_FUNC_PROTO
+	struct func_prototype *funcproto_start;
+	size_t funcproto_sec_size;
+#endif
 #ifdef CONFIG_LIVEPATCH
 	bool klp; /* Is this a livepatch module? */
 	bool klp_alive;

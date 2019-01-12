@@ -1017,11 +1017,6 @@ static bool update_all_ops;
 # error Dynamic ftrace depends on MCOUNT_RECORD
 #endif
 
-struct ftrace_func_entry {
-	struct hlist_node hlist;
-	unsigned long ip;
-};
-
 struct ftrace_func_probe {
 	struct ftrace_probe_ops	*probe_ops;
 	struct ftrace_ops	ops;
@@ -1169,7 +1164,7 @@ static void __add_hash_entry(struct ftrace_hash *hash,
 	hash->count++;
 }
 
-static int add_hash_entry(struct ftrace_hash *hash, unsigned long ip)
+static int add_hash_entry(struct ftrace_hash *hash, unsigned long ip, void *priv)
 {
 	struct ftrace_func_entry *entry;
 
@@ -1178,6 +1173,7 @@ static int add_hash_entry(struct ftrace_hash *hash, unsigned long ip)
 		return -ENOMEM;
 
 	entry->ip = ip;
+	entry->priv = priv;
 	__add_hash_entry(hash, entry);
 
 	return 0;
@@ -1346,7 +1342,7 @@ alloc_and_copy_ftrace_hash(int size_bits, struct ftrace_hash *hash)
 	size = 1 << hash->size_bits;
 	for (i = 0; i < size; i++) {
 		hlist_for_each_entry(entry, &hash->buckets[i], hlist) {
-			ret = add_hash_entry(new_hash, entry->ip);
+			ret = add_hash_entry(new_hash, entry->ip, NULL);
 			if (ret < 0)
 				goto free_hash;
 		}
@@ -3694,7 +3690,7 @@ enter_record(struct ftrace_hash *hash, struct dyn_ftrace *rec, int clear_filter)
 		if (entry)
 			return 0;
 
-		ret = add_hash_entry(hash, rec->ip);
+		ret = add_hash_entry(hash, rec->ip, NULL);
 	}
 	return ret;
 }
@@ -4700,7 +4696,7 @@ ftrace_match_addr(struct ftrace_hash *hash, unsigned long ip, int remove)
 		return 0;
 	}
 
-	return add_hash_entry(hash, ip);
+	return add_hash_entry(hash, ip, NULL);
 }
 
 static int
@@ -5061,6 +5057,7 @@ static DEFINE_MUTEX(graph_lock);
 
 struct ftrace_hash *ftrace_graph_hash = EMPTY_HASH;
 struct ftrace_hash *ftrace_graph_notrace_hash = EMPTY_HASH;
+struct ftrace_hash *ftrace_prototype_hash = EMPTY_HASH;
 
 enum graph_filter_type {
 	GRAPH_FILTER_NOTRACE	= 0,
@@ -5380,7 +5377,7 @@ ftrace_graph_set_hash(struct ftrace_hash *hash, char *buffer)
 
 				if (entry)
 					continue;
-				if (add_hash_entry(hash, rec->ip) < 0)
+				if (add_hash_entry(hash, rec->ip, NULL) < 0)
 					goto out;
 			} else {
 				if (entry) {
@@ -5616,6 +5613,40 @@ static int ftrace_process_locs(struct module *mod,
 	return ret;
 }
 
+static int ftrace_process_funcproto(struct module *mod,
+			       struct func_prototype *start,
+			       struct func_prototype *end,
+			       bool remove)
+{
+	struct ftrace_func_entry *ent;
+	struct func_prototype *proto;
+	int ret = 0;
+
+	mutex_lock(&ftrace_lock);
+
+restart:
+	proto = start;
+	while (proto < end) {
+		if (remove) {
+			ent = ftrace_lookup_ip(ftrace_prototype_hash, proto->ip);
+			if (ent)
+				free_hash_entry(ftrace_prototype_hash, ent);
+		} else {
+			ret = add_hash_entry(ftrace_prototype_hash, proto->ip, proto);
+			if (ret < 0) {
+				end = proto;
+				remove = 1;
+				goto restart;
+			}
+		}
+		proto = (struct func_prototype *)((char *)proto + sizeof(*proto) + sizeof(proto->params[0]) * proto->nr_param);
+	}
+
+	mutex_unlock(&ftrace_lock);
+
+	return ret;
+}
+
 struct ftrace_mod_func {
 	struct list_head	list;
 	char			*name;
@@ -5759,6 +5790,11 @@ void ftrace_release_mod(struct module *mod)
 		} else
 			last_pg = &pg->next;
 	}
+
+	ftrace_process_funcproto(mod, mod->funcproto_start,
+				 (void *)mod->funcproto_start + mod->funcproto_sec_size,
+				 true);
+
  out_unlock:
 	mutex_unlock(&ftrace_lock);
 
@@ -5853,6 +5889,10 @@ void ftrace_module_init(struct module *mod)
 
 	ftrace_process_locs(mod, mod->ftrace_callsites,
 			    mod->ftrace_callsites + mod->num_ftrace_callsites);
+	ftrace_process_funcproto(mod,
+				 mod->funcproto_start,
+				 (void *)mod->funcproto_start + mod->funcproto_sec_size,
+				 false);
 }
 
 static void save_ftrace_mod_rec(struct ftrace_mod_map *mod_map,
@@ -6147,6 +6187,8 @@ void __init ftrace_init(void)
 {
 	extern unsigned long __start_mcount_loc[];
 	extern unsigned long __stop_mcount_loc[];
+	extern struct func_prototype __start_funcproto[];
+	extern struct func_prototype __stop_funcproto[];
 	unsigned long count, flags;
 	int ret;
 
@@ -6170,6 +6212,15 @@ void __init ftrace_init(void)
 	ret = ftrace_process_locs(NULL,
 				  __start_mcount_loc,
 				  __stop_mcount_loc);
+
+	ftrace_prototype_hash = alloc_ftrace_hash(FTRACE_HASH_DEFAULT_BITS);
+	if (WARN_ON(!ftrace_prototype_hash))
+		goto failed;
+
+	ftrace_process_funcproto(NULL,
+				 __start_funcproto,
+				 __stop_funcproto,
+				 false);
 
 	set_ftrace_early_filters();
 

@@ -737,7 +737,7 @@ void print_trace_header(struct seq_file *m, struct trace_iterator *iter);
 int trace_empty(struct trace_iterator *iter);
 
 void trace_graph_return(struct ftrace_graph_ret *trace);
-int trace_graph_entry(struct ftrace_graph_ent *trace);
+int trace_graph_entry(struct ftrace_graph_ent *trace, struct pt_regs *regs);
 void set_graph_array(struct trace_array *tr);
 
 void tracing_start_cmdline_record(void);
@@ -882,6 +882,12 @@ struct ftrace_hash {
 	struct rcu_head		rcu;
 };
 
+struct ftrace_func_entry {
+	struct hlist_node hlist;
+	unsigned long ip;
+	void *priv;
+};
+
 struct ftrace_func_entry *
 ftrace_lookup_ip(struct ftrace_hash *hash, unsigned long ip);
 
@@ -933,20 +939,20 @@ extern void __trace_graph_return(struct trace_array *tr,
 #ifdef CONFIG_DYNAMIC_FTRACE
 extern struct ftrace_hash *ftrace_graph_hash;
 extern struct ftrace_hash *ftrace_graph_notrace_hash;
+extern struct ftrace_hash *ftrace_prototype_hash;
 
-static inline int ftrace_graph_addr(struct ftrace_graph_ent *trace)
+static inline struct ftrace_func_entry *ftrace_graph_addr(struct ftrace_graph_ent *trace)
 {
 	unsigned long addr = trace->func;
-	int ret = 0;
+	struct ftrace_func_entry *ent = NULL;
 
 	preempt_disable_notrace();
 
-	if (ftrace_hash_empty(ftrace_graph_hash)) {
-		ret = 1;
+	if (ftrace_hash_empty(ftrace_graph_hash))
 		goto out;
-	}
 
-	if (ftrace_lookup_ip(ftrace_graph_hash, addr)) {
+	ent = ftrace_lookup_ip(ftrace_graph_hash, addr);
+	if (ent) {
 
 		/*
 		 * This needs to be cleared on the return functions
@@ -964,12 +970,11 @@ static inline int ftrace_graph_addr(struct ftrace_graph_ent *trace)
 			trace_recursion_set(TRACE_IRQ_BIT);
 		else
 			trace_recursion_clear(TRACE_IRQ_BIT);
-		ret = 1;
 	}
 
 out:
 	preempt_enable_notrace();
-	return ret;
+	return ent;
 }
 
 static inline void ftrace_graph_addr_finish(struct ftrace_graph_ret *trace)
@@ -1011,9 +1016,9 @@ static inline bool ftrace_graph_ignore_func(struct ftrace_graph_ent *trace)
 {
 	/* trace it when it is-nested-in or is a function enabled. */
 	return !(trace_recursion_test(TRACE_GRAPH_BIT) ||
-		 ftrace_graph_addr(trace)) ||
+	       ftrace_graph_addr(trace)) ||
 		(trace->depth < 0) ||
-		(fgraph_max_depth && trace->depth >= fgraph_max_depth);
+	       (fgraph_max_depth && trace->depth >= fgraph_max_depth);;
 }
 
 #else /* CONFIG_FUNCTION_GRAPH_TRACER */
@@ -1221,6 +1226,13 @@ extern int trace_get_user(struct trace_parser *parser, const char __user *ubuf,
 # define STACK_FLAGS
 #endif
 
+#ifdef CONFIG_HAVE_FTRACE_FUNC_PROTO
+# define FUNCPROTO_FLAGS			\
+		C(RECORD_FUNCPROTO,     "record-funcproto"),
+#else
+# define FUNCPROTO_FLAGS
+#endif
+
 /*
  * trace_iterator_flags is an enumeration that defines bit
  * positions into trace_flags that controls the output.
@@ -1246,6 +1258,7 @@ extern int trace_get_user(struct trace_parser *parser, const char __user *ubuf,
 		C(LATENCY_FMT,		"latency-format"),	\
 		C(RECORD_CMD,		"record-cmd"),		\
 		C(RECORD_TGID,		"record-tgid"),		\
+		FUNCPROTO_FLAGS					\
 		C(OVERWRITE,		"overwrite"),		\
 		C(STOP_ON_FREE,		"disable_on_free"),	\
 		C(IRQ_INFO,		"irq-info"),		\

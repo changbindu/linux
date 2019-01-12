@@ -289,7 +289,8 @@ ENTRY(ftrace_graph_caller)
 
 	leaq MCOUNT_REG_SIZE+8(%rsp), %rsi
 	movq $0, %rdx	/* No framepointers needed */
-	call	prepare_ftrace_return
+	movq %rsp, %rcx
+	call prepare_ftrace_return
 
 	restore_mcount_regs
 
@@ -304,6 +305,7 @@ ENTRY(return_to_handler)
 	movq %rax, (%rsp)
 	movq %rdx, 8(%rsp)
 	movq %rbp, %rdi
+	movq %rax, %rsi
 
 	call ftrace_return_to_handler
 

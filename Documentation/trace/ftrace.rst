@@ -1264,6 +1264,11 @@ Options for function_graph tracer:
 	only a closing curly bracket "}" is displayed for
 	the return of a function.
 
+  funcgraph-retval - At the end of each function (the return) the
+    return value the function  (though the function may not
+    really have it) is displayed in hex and negative number
+    if it looks like a error code.
+
   sleep-time
 	When running function graph tracer, to include
 	the time a task schedules out in its function.

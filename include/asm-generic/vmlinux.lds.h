@@ -397,6 +397,18 @@
 									\
 	TRACEDATA							\
 									\
+	. = ALIGN(8);							\
+	__funcprotostr : AT(ADDR(__funcprotostr) - LOAD_OFFSET) {	\
+		KEEP(*(__funcprotostr)) 				\
+	}								\
+									\
+	. = ALIGN(8);							\
+	__funcproto : AT(ADDR(__funcproto) - LOAD_OFFSET) {		\
+		__start_funcproto = .;					\
+		KEEP(*(__funcproto))					\
+		__stop_funcproto = .;					\
+	}								\
+									\
 	/* Kernel symbol table: Normal symbols */			\
 	__ksymtab         : AT(ADDR(__ksymtab) - LOAD_OFFSET) {		\
 		__start___ksymtab = .;					\

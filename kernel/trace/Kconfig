@@ -25,6 +25,9 @@ config HAVE_FUNCTION_GRAPH_TRACER
 	help
 	  See Documentation/trace/ftrace-design.rst
 
+config HAVE_FTRACE_FUNC_PROTO
+	bool
+
 config HAVE_DYNAMIC_FTRACE
 	bool
 	help
@@ -161,6 +164,7 @@ config FUNCTION_GRAPH_TRACER
 	depends on HAVE_FUNCTION_GRAPH_TRACER
 	depends on FUNCTION_TRACER
 	depends on !X86_32 || !CC_OPTIMIZE_FOR_SIZE
+	select HAVE_FTRACE_FUNC_PROTO if (X86 || ARM)
 	default y
 	help
 	  Enable the kernel to trace a function at both its return
