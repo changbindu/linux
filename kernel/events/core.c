@@ -3892,6 +3892,16 @@ static inline u64 perf_event_count(struct perf_event *event)
 	return local64_read(&event->count) + atomic64_read(&event->child_count);
 }
 
+static inline u64 perf_event_sample_count(struct perf_event *event)
+{
+	return local64_read(&event->sample_count) + atomic64_read(&event->child_sample_count);
+}
+
+static inline u64 perf_event_guest_sample_count(struct perf_event *event)
+{
+	return local64_read(&event->guest_sample_count) + atomic64_read(&event->child_guest_sample_count);
+}
+
 /*
  * NMI-safe method to read a local event, that is an event that
  * is:
@@ -6077,6 +6087,10 @@ static void perf_output_read_one(struct perf_output_handle *handle,
 	}
 	if (read_format & PERF_FORMAT_ID)
 		values[n++] = primary_event_id(event);
+	if (read_format & PERF_FORMAT_SAMPLE_COUNT)
+		values[n++] = perf_event_sample_count(event);
+	if (read_format & PERF_FORMAT_GUEST_SAMPLE_COUNT)
+		values[n++] = perf_event_guest_sample_count(event);
 
 	__output_copy(handle, values, n * sizeof(u64));
 }
@@ -6320,6 +6334,10 @@ void perf_output_sample(struct perf_output_handle *handle,
 			}
 		}
 	}
+
+	local64_inc(&event->sample_count);
+	if (header->misc & (PERF_RECORD_MISC_GUEST_KERNEL | PERF_RECORD_MISC_GUEST_USER))
+		local64_inc(&event->guest_sample_count);
 }
 
 static u64 perf_virt_to_phys(u64 virt)
@@ -11009,17 +11027,16 @@ static void sync_child_event(struct perf_event *child_event,
 			       struct task_struct *child)
 {
 	struct perf_event *parent_event = child_event->parent;
-	u64 child_val;
 
 	if (child_event->attr.inherit_stat)
 		perf_event_read_event(child_event, child);
 
-	child_val = perf_event_count(child_event);
-
 	/*
 	 * Add back the child's count to the parent's count:
 	 */
-	atomic64_add(child_val, &parent_event->child_count);
+	atomic64_add(perf_event_count(child_event), &parent_event->child_count);
+	atomic64_add(perf_event_sample_count(child_event), &parent_event->child_sample_count);
+	atomic64_add(perf_event_guest_sample_count(child_event), &parent_event->child_guest_sample_count);
 	atomic64_add(child_event->total_time_enabled,
 		     &parent_event->child_total_time_enabled);
 	atomic64_add(child_event->total_time_running,

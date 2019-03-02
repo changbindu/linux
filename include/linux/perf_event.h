@@ -597,6 +597,11 @@ struct perf_event {
 	local64_t			count;
 	atomic64_t			child_count;
 
+	local64_t			sample_count;
+	atomic64_t			child_sample_count;
+	local64_t			guest_sample_count;
+	atomic64_t			child_guest_sample_count;
+
 	/*
 	 * These are the total time in nanoseconds that the event
 	 * has been enabled (i.e. eligible to run, and the task has
