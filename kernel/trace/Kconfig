@@ -38,6 +38,9 @@ config HAVE_FTRACE_MCOUNT_RECORD
 	help
 	  See Documentation/trace/ftrace-design.rst
 
+config HAVE_FTRACE_FUNC_PROTOTYPE
+	bool
+
 config HAVE_SYSCALL_TRACEPOINTS
 	bool
 	help
@@ -169,6 +172,22 @@ config FUNCTION_GRAPH_TRACER
 	  draw a call graph for each thread with some information like
 	  the return value. This is done by setting the current return
 	  address on the current task structure into a stack of calls.
+
+config FTRACE_FUNC_PROTOTYPE
+	bool "Support recording function parameters and return value"
+	default n
+	depends on DYNAMIC_FTRACE
+	depends on HAVE_FTRACE_FUNC_PROTOTYPE
+	depends on FUNCTION_GRAPH_TRACER
+	help
+	  Enable the Function Graph Tracer to record function parameters and
+	  return value. It can be dynamically enabled/disabled by the
+	  'record-funcproto' trace option.
+
+	  By enabling this, function prototype information is built into
+	  kernel. And the kernel size will increase by approximately 2%.
+
+	  Say N if unsure.
 
 config TRACE_PREEMPT_TOGGLE
 	bool

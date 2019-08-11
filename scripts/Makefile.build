@@ -206,6 +206,21 @@ cmd_record_mcount = $(if $(findstring $(strip $(CC_FLAGS_FTRACE)),$(_c_flags)),	
 endif # CC_USING_RECORD_MCOUNT
 endif # CONFIG_FTRACE_MCOUNT_RECORD
 
+ifdef CONFIG_FTRACE_FUNC_PROTOTYPE
+sub_cmd_funcprototype =							\
+	$(srctree)/scripts/ftrace/funcprototype "$(@)" |		\
+		$(CC) $(KBUILD_CPPFLAGS) $(KBUILD_CFLAGS) -c		\
+		-o $(@D)/.tmp_$(@F:.o=.funcprototype) -x assembler -;	\
+	$(LD) $(ld_flags) -r -o $(@D)/.tmp_$(@F) $@ $(@D)/.tmp_$(@F:.o=.funcprototype); \
+	mv -f $(@D)/.tmp_$(@F) $@;					\
+	rm -f $(@D)/.tmp_$(@F:.o=.funcprototype);
+cmd_funcprototype = \
+	if $(OBJDUMP) -h $@ | grep -q __mcount_loc; then		\
+		$(sub_cmd_funcprototype)				\
+	fi
+funcprototype_source := $(srctree)/scripts/ftrace/funcprototype.c
+endif # CONFIG_FTRACE_FUNC_PROTOTYPE
+
 ifdef CONFIG_STACK_VALIDATION
 ifneq ($(SKIP_STACK_VALIDATION),1)
 
@@ -259,6 +274,7 @@ define rule_cc_o_c
 	$(call cmd,objtool)
 	$(call cmd,modversions_c)
 	$(call cmd,record_mcount)
+	$(call cmd,funcprototype)
 endef
 
 define rule_as_o_S
@@ -276,7 +292,7 @@ cmd_undef_syms = echo
 endif
 
 # Built-in and composite module parts
-$(obj)/%.o: $(src)/%.c $(recordmcount_source) $(objtool_dep) FORCE
+$(obj)/%.o: $(src)/%.c $(recordmcount_source) $(funcprototype_source) $(objtool_dep) FORCE
 	$(call cmd,force_checksrc)
 	$(call if_changed_rule,cc_o_c)
 
