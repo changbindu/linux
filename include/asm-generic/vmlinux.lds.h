@@ -125,6 +125,23 @@
 #define MCOUNT_REC()
 #endif
 
+#ifdef CONFIG_FTRACE_FUNC_PROTOTYPE
+#define FUNC_PROTOTYPE							\
+	. = ALIGN(8);							\
+	__funcprotostr : AT(ADDR(__funcprotostr) - LOAD_OFFSET) {	\
+		KEEP(*(__funcprotostr)) 				\
+	}								\
+									\
+	. = ALIGN(8);							\
+	__funcproto : AT(ADDR(__funcproto) - LOAD_OFFSET) {		\
+		__start_funcproto = .;					\
+		KEEP(*(__funcproto))					\
+		__stop_funcproto = .;					\
+	}
+#else
+#define	FUNC_PROTOTYPE
+#endif
+
 #ifdef CONFIG_TRACE_BRANCH_PROFILING
 #define LIKELY_PROFILE()	__start_annotated_branch_profile = .;	\
 				KEEP(*(_ftrace_annotated_branch))	\
@@ -396,6 +413,7 @@
 	}								\
 									\
 	TRACEDATA							\
+	FUNC_PROTOTYPE							\
 									\
 	/* Kernel symbol table: Normal symbols */			\
 	__ksymtab         : AT(ADDR(__ksymtab) - LOAD_OFFSET) {		\

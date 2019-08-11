@@ -361,6 +361,24 @@ struct dyn_ftrace {
 	struct dyn_arch_ftrace	arch;
 };
 
+#ifdef CONFIG_FTRACE_FUNC_PROTOTYPE
+struct func_param {
+	char *name;
+	uint8_t type;
+	uint8_t loc[2];
+} __packed;
+
+struct func_prototype {
+	unsigned long ip;
+	uint8_t ret_type;
+	uint8_t nr_param;
+	struct func_param params[0];
+} __packed;
+
+#define FTRACE_PROTOTYPE_SIGNED(t)	(t & BIT(7))
+#define FTRACE_PROTOTYPE_SIZE(t)	(t & GENMASK(6, 0))
+#endif
+
 int ftrace_force_update(void);
 int ftrace_set_filter_ip(struct ftrace_ops *ops, unsigned long ip,
 			 int remove, int reset);

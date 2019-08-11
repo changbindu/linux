@@ -940,6 +940,10 @@ extern void __trace_graph_return(struct trace_array *tr,
 extern struct ftrace_hash *ftrace_graph_hash;
 extern struct ftrace_hash *ftrace_graph_notrace_hash;
 
+#ifdef CONFIG_FTRACE_FUNC_PROTOTYPE
+extern struct ftrace_hash *ftrace_prototype_hash;
+#endif
+
 static inline int ftrace_graph_addr(struct ftrace_graph_ent *trace)
 {
 	unsigned long addr = trace->func;
