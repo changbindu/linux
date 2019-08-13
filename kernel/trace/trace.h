@@ -1231,6 +1231,13 @@ extern int trace_get_user(struct trace_parser *parser, const char __user *ubuf,
 # define STACK_FLAGS
 #endif
 
+#ifdef CONFIG_FTRACE_FUNC_PROTOTYPE
+# define FUNCPROTO_FLAGS			\
+		C(RECORD_FUNCPROTO,     "record-funcproto"),
+#else
+# define FUNCPROTO_FLAGS
+#endif
+
 /*
  * trace_iterator_flags is an enumeration that defines bit
  * positions into trace_flags that controls the output.
@@ -1256,6 +1263,7 @@ extern int trace_get_user(struct trace_parser *parser, const char __user *ubuf,
 		C(LATENCY_FMT,		"latency-format"),	\
 		C(RECORD_CMD,		"record-cmd"),		\
 		C(RECORD_TGID,		"record-tgid"),		\
+		FUNCPROTO_FLAGS					\
 		C(OVERWRITE,		"overwrite"),		\
 		C(STOP_ON_FREE,		"disable_on_free"),	\
 		C(IRQ_INFO,		"irq-info"),		\

@@ -5658,6 +5658,56 @@ restart:
 
 	return ret;
 }
+
+void ftrace_print_typed_val(struct trace_seq *s, uint8_t type,
+			    unsigned long val)
+{
+	unsigned int sz = FTRACE_PROTOTYPE_SIZE(type);
+	bool is_signed = FTRACE_PROTOTYPE_SIGNED(type);
+
+	/* Don't show complex types */
+	if (sz > sizeof(long)) {
+		trace_seq_printf(s, "{..}");
+		return;
+	}
+
+	switch (sz) {
+	case 0:
+		/* The value is not valid. */
+		trace_seq_printf(s, "?");
+		break;
+	case 1:
+		val &= GENMASK_ULL(7, 0);
+		if (is_signed)
+			trace_seq_printf(s, "%d", (char)val);
+		else
+			trace_seq_printf(s, "0x%02lx", val);
+		break;
+	case 2:
+		val &= GENMASK_ULL(15, 0);
+		if (is_signed)
+			trace_seq_printf(s, "%d", (short)val);
+		else
+			trace_seq_printf(s, "0x%04lx", val);
+		break;
+	case 4:
+		val &= GENMASK_ULL(31, 0);
+		if (is_signed)
+			trace_seq_printf(s, "%d", (int)val);
+		else
+			trace_seq_printf(s, "0x%08lx", val);
+		break;
+	case 8:
+		val &= GENMASK_ULL(63, 0);
+		if (is_signed)
+			trace_seq_printf(s, "%lld", (long long)val);
+		else
+			trace_seq_printf(s, "0x%016lx", val);
+		break;
+	default:
+		trace_seq_printf(s, "{badsize%d}", sz);
+	}
+}
 #endif
 
 struct ftrace_mod_func {

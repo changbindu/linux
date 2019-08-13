@@ -17,6 +17,7 @@
 #include <linux/types.h>
 #include <linux/init.h>
 #include <linux/fs.h>
+#include <linux/trace_seq.h>
 
 #include <asm/ftrace.h>
 
@@ -377,6 +378,9 @@ struct func_prototype {
 
 #define FTRACE_PROTOTYPE_SIGNED(t)	(t & BIT(7))
 #define FTRACE_PROTOTYPE_SIZE(t)	(t & GENMASK(6, 0))
+
+void ftrace_print_typed_val(struct trace_seq *s, uint8_t type,
+			    unsigned long val);
 #endif
 
 int ftrace_force_update(void);
@@ -731,6 +735,13 @@ extern void ftrace_init(void);
 static inline void ftrace_init(void) { }
 #endif
 
+#ifdef CONFIG_FTRACE_FUNC_PROTOTYPE
+# define FTRACE_MAX_FUNC_PARAMS		10
+
+# define FTRACE_PROTOTYPE_SIGNED(t)	(t & BIT(7))
+# define FTRACE_PROTOTYPE_SIZE(t)	(t & GENMASK(6, 0))
+#endif
+
 /*
  * Structure that defines an entry function trace.
  * It's already packed but the attribute "packed" is needed
@@ -739,6 +750,12 @@ static inline void ftrace_init(void) { }
 struct ftrace_graph_ent {
 	unsigned long func; /* Current function */
 	int depth;
+#ifdef CONFIG_FTRACE_FUNC_PROTOTYPE
+	uint8_t nr_param;
+	char *param_names[FTRACE_MAX_FUNC_PARAMS];
+	uint8_t param_types[FTRACE_MAX_FUNC_PARAMS];
+	unsigned long param_values[FTRACE_MAX_FUNC_PARAMS];
+#endif
 } __packed;
 
 /*
@@ -753,7 +770,12 @@ struct ftrace_graph_ret {
 	unsigned long long calltime;
 	unsigned long long rettime;
 	int depth;
+#ifdef CONFIG_FTRACE_FUNC_PROTOTYPE
+	uint8_t ret_type;
+	unsigned long retval;
+#endif
 } __packed;
+
 
 /* Type of the callback handlers for tracing function graph*/
 typedef void (*trace_func_graph_ret_t)(struct ftrace_graph_ret *); /* return */
@@ -842,6 +864,11 @@ static inline void unpause_graph_tracing(void)
 {
 	atomic_dec(&current->tracing_graph_pause);
 }
+
+void arch_fgraph_record_params(struct ftrace_graph_ent *trace,
+			       struct func_prototype *proto,
+			       struct pt_regs *pt_regs);
+
 #else /* !CONFIG_FUNCTION_GRAPH_TRACER */
 
 #define __notrace_funcgraph

@@ -220,6 +220,11 @@ unsigned long ftrace_return_to_handler(unsigned long frame_pointer,
 
 	ftrace_pop_return_trace(&trace, &ret, frame_pointer);
 	trace.rettime = trace_clock_local();
+
+#ifdef CONFIG_FTRACE_FUNC_PROTOTYPE
+	trace.retval = retval;
+#endif
+
 	ftrace_graph_return(&trace);
 	/*
 	 * The ftrace_graph_return() may still access the current
