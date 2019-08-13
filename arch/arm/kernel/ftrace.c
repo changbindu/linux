@@ -191,7 +191,7 @@ void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr,
 	old = *parent;
 	*parent = return_hooker;
 
-	if (function_graph_enter(old, self_addr, frame_pointer, NULL))
+	if (function_graph_enter(old, self_addr, frame_pointer, NULL, NULL))
 		*parent = old;
 }
 

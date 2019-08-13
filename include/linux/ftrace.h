@@ -757,9 +757,12 @@ struct ftrace_graph_ret {
 
 /* Type of the callback handlers for tracing function graph*/
 typedef void (*trace_func_graph_ret_t)(struct ftrace_graph_ret *); /* return */
-typedef int (*trace_func_graph_ent_t)(struct ftrace_graph_ent *); /* entry */
+/* @pt_regs is only available for CONFIG_FTRACE_FUNC_PROTOTYPE. */
+typedef int (*trace_func_graph_ent_t)(struct ftrace_graph_ent *,
+				      struct pt_regs *); /* entry */
 
-extern int ftrace_graph_entry_stub(struct ftrace_graph_ent *trace);
+int ftrace_graph_entry_stub(struct ftrace_graph_ent *trace,
+			    struct pt_regs *pt_regs);
 
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
 
@@ -797,7 +800,8 @@ extern void return_to_handler(void);
 
 extern int
 function_graph_enter(unsigned long ret, unsigned long func,
-		     unsigned long frame_pointer, unsigned long *retp);
+		     unsigned long frame_pointer, unsigned long *retp,
+		     struct pt_regs *pt_regs);
 
 struct ftrace_ret_stack *
 ftrace_graph_get_ret_stack(struct task_struct *task, int idx);

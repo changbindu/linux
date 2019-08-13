@@ -217,7 +217,7 @@ void prepare_ftrace_return(unsigned long *parent, unsigned long self_addr,
 
 	old = *parent;
 
-	if (!function_graph_enter(old, self_addr, frame_pointer, NULL))
+	if (!function_graph_enter(old, self_addr, frame_pointer, NULL, NULL))
 		*parent = return_hooker;
 }
 
@@ -235,7 +235,8 @@ noinline void ftrace_graph_caller(void)
 	prepare_ftrace_return(parent_ip, selfpc, frame_pointer);
 }
 
-extern unsigned long ftrace_return_to_handler(unsigned long frame_pointer);
+extern unsigned long ftrace_return_to_handler(unsigned long frame_pointer,
+					      unsigned long retval);
 void __naked return_to_handler(void)
 {
 	__asm__ __volatile__ (

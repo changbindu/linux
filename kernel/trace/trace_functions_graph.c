@@ -124,7 +124,7 @@ static inline int ftrace_graph_ignore_irqs(void)
 	return in_irq();
 }
 
-int trace_graph_entry(struct ftrace_graph_ent *trace)
+int trace_graph_entry(struct ftrace_graph_ent *trace, struct pt_regs *pt_regs)
 {
 	struct trace_array *tr = graph_array;
 	struct trace_array_cpu *data;

@@ -737,7 +737,7 @@ void print_trace_header(struct seq_file *m, struct trace_iterator *iter);
 int trace_empty(struct trace_iterator *iter);
 
 void trace_graph_return(struct ftrace_graph_ret *trace);
-int trace_graph_entry(struct ftrace_graph_ent *trace);
+int trace_graph_entry(struct ftrace_graph_ent *trace, struct pt_regs *pt_regs);
 void set_graph_array(struct trace_array *tr);
 
 void tracing_start_cmdline_record(void);

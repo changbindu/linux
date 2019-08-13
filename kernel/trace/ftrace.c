@@ -794,7 +794,9 @@ void ftrace_graph_graph_time_control(bool enable)
 	fgraph_graph_time = enable;
 }
 
-static int profile_graph_entry(struct ftrace_graph_ent *trace)
+/* @pt_regs is only available for CONFIG_FTRACE_FUNC_PROTOTYPE. */
+static int profile_graph_entry(struct ftrace_graph_ent *trace,
+			       struct pt_regs *pt_regs)
 {
 	struct ftrace_ret_stack *ret_stack;
 

@@ -96,8 +96,13 @@ ftrace_push_return_trace(unsigned long ret, unsigned long func,
 	return 0;
 }
 
+/*
+ * Called from arch specific code. @pt_regs is only available for
+ * CONFIG_FTRACE_FUNC_PROTOTYPE.
+ */
 int function_graph_enter(unsigned long ret, unsigned long func,
-			 unsigned long frame_pointer, unsigned long *retp)
+			 unsigned long frame_pointer, unsigned long *retp,
+			 struct pt_regs *pt_regs)
 {
 	struct ftrace_graph_ent trace;
 
@@ -108,7 +113,7 @@ int function_graph_enter(unsigned long ret, unsigned long func,
 		goto out;
 
 	/* Only trace if the calling function expects to */
-	if (!ftrace_graph_entry(&trace))
+	if (!ftrace_graph_entry(&trace, pt_regs))
 		goto out_ret;
 
 	return 0;
@@ -204,9 +209,11 @@ static struct notifier_block ftrace_suspend_notifier = {
 
 /*
  * Send the trace to the ring-buffer.
+ * @retval is only available for CONFIG_FTRACE_FUNC_PROTOTYPE.
  * @return the original return address.
  */
-unsigned long ftrace_return_to_handler(unsigned long frame_pointer)
+unsigned long ftrace_return_to_handler(unsigned long frame_pointer,
+				       unsigned long retval)
 {
 	struct ftrace_graph_ret trace;
 	unsigned long ret;
@@ -327,7 +334,8 @@ void ftrace_graph_sleep_time_control(bool enable)
 	fgraph_sleep_time = enable;
 }
 
-int ftrace_graph_entry_stub(struct ftrace_graph_ent *trace)
+int ftrace_graph_entry_stub(struct ftrace_graph_ent *trace,
+			    struct pt_regs *pt_regs)
 {
 	return 0;
 }
@@ -417,11 +425,12 @@ ftrace_graph_probe_sched_switch(void *ignore, bool preempt,
 		next->ret_stack[index].calltime += timestamp;
 }
 
-static int ftrace_graph_entry_test(struct ftrace_graph_ent *trace)
+static int ftrace_graph_entry_test(struct ftrace_graph_ent *trace,
+				   struct pt_regs *pt_regs)
 {
 	if (!ftrace_ops_test(&global_ops, trace->func, NULL))
 		return 0;
-	return __ftrace_graph_entry(trace);
+	return __ftrace_graph_entry(trace, pt_regs);
 }
 
 /*

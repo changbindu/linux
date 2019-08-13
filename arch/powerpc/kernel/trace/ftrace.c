@@ -956,7 +956,7 @@ unsigned long prepare_ftrace_return(unsigned long parent, unsigned long ip)
 
 	return_hooker = ppc_function_entry(return_to_handler);
 
-	if (!function_graph_enter(parent, ip, 0, NULL))
+	if (!function_graph_enter(parent, ip, 0, NULL, NULL))
 		parent = return_hooker;
 out:
 	return parent;
