@@ -31,6 +31,7 @@
 #include <asm/ftrace.h>
 #include <asm/nops.h>
 #include <asm/text-patching.h>
+#include <asm-generic/dwarf.h>
 
 #ifdef CONFIG_DYNAMIC_FTRACE
 
@@ -918,7 +919,8 @@ static void *addr_from_call(void *ptr)
 }
 
 void prepare_ftrace_return(unsigned long self_addr, unsigned long *parent,
-			   unsigned long frame_pointer);
+			   unsigned long frame_pointer,
+			   struct pt_regs *pt_regs);
 
 /*
  * If the ops->trampoline was not allocated, then it probably
@@ -973,6 +975,82 @@ void arch_ftrace_trampoline_free(struct ftrace_ops *ops)
 	ops->trampoline = 0;
 }
 
+#ifdef CONFIG_FTRACE_FUNC_PROTOTYPE
+void arch_fgraph_record_params(struct ftrace_graph_ent *trace,
+			       struct func_prototype *proto,
+			       struct pt_regs *pt_regs)
+{
+	int i;
+
+	trace->nr_param = min(proto->nr_param, (uint8_t)FTRACE_MAX_FUNC_PARAMS);
+
+	for (i = 0; i < trace->nr_param; i++) {
+		struct func_param *param = &proto->params[i];
+		unsigned int sz = FTRACE_PROTOTYPE_SIZE(param->type);
+		long off = (char)param->loc[1];
+		unsigned long value = 0;
+		bool good = true;
+
+		if (sz > sizeof(value)) {
+			/* Don't record value of complex type. */
+			trace->param_types[i] = param->type;
+			trace->param_values[i] = 0;
+			continue;
+		}
+
+		switch (param->loc[0]) {
+		case DW_OP_reg1:
+			value = pt_regs->dx;
+			break;
+		case DW_OP_reg2:
+			value = pt_regs->cx;
+			break;
+		case DW_OP_reg3:
+			value = pt_regs->bx;
+			break;
+		case DW_OP_reg4:
+			value = pt_regs->si;
+			break;
+		case DW_OP_reg5:
+			value = pt_regs->di;
+			break;
+		case DW_OP_reg6:
+			value = pt_regs->bp;
+			break;
+		case DW_OP_reg8:
+			value = pt_regs->r8;
+			break;
+		case DW_OP_reg9:
+			value = pt_regs->r9;
+			break;
+		case DW_OP_fbreg:
+			if (probe_kernel_read(&value,
+					(void *)pt_regs->bp + off,
+					sz))
+				good = false;
+			break;
+		case DW_OP_breg7:
+			if (probe_kernel_read(&value,
+					(void *)pt_regs->sp + off,
+					sz))
+				good = false;
+			break;
+		default:
+			/* unexpected loc expression */
+			good = false;
+		}
+
+		trace->param_names[i] = param->name;
+		if (good) {
+			trace->param_types[i] = param->type;
+			trace->param_values[i] = value;
+		} else {
+			/* set the type to 0 so we skip it when printing. */
+			trace->param_types[i] = 0;
+		}
+	}
+}
+#endif /* CONFIG_FTRACE_FUNC_PROTOTYPE */
 #endif /* CONFIG_X86_64 */
 #endif /* CONFIG_DYNAMIC_FTRACE */
 
@@ -1017,7 +1095,7 @@ int ftrace_disable_ftrace_graph_caller(void)
  * in current thread info.
  */
 void prepare_ftrace_return(unsigned long self_addr, unsigned long *parent,
-			   unsigned long frame_pointer)
+			   unsigned long frame_pointer, struct pt_regs *pt_regs)
 {
 	unsigned long old;
 	int faulted;
@@ -1072,7 +1150,7 @@ void prepare_ftrace_return(unsigned long self_addr, unsigned long *parent,
 		return;
 	}
 
-	if (function_graph_enter(old, self_addr, frame_pointer, parent, NULL))
+	if (function_graph_enter(old, self_addr, frame_pointer, parent, pt_regs))
 		*parent = old;
 }
 #endif /* CONFIG_FUNCTION_GRAPH_TRACER */
