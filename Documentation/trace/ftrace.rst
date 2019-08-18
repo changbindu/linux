@@ -988,6 +988,7 @@ To see what is available, simply cat the file::
 	nolatency-format
 	record-cmd
 	norecord-tgid
+	norecord-funcproto
 	overwrite
 	nodisable_on_free
 	irq-info
@@ -1130,6 +1131,11 @@ Here are the available options:
 	in the sched_switch trace point to fill the cache of
 	mapped Thread Group IDs (TGID) mapping to pids. See
 	"saved_tgids".
+
+  record-funcproto
+	Record function parameters and return value. This option
+	is only supported by function_graph tracer on x86_64
+	platform by now.
 
   overwrite
 	This controls what happens when the trace buffer is
