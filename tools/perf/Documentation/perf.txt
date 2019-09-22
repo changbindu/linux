@@ -16,7 +16,8 @@ OPTIONS
 	Setup debug variable (see list below). The range of 'level' value
 	is (0, 10). Use like:
 	  --debug verbose   # sets verbose = 1
-	  --debug verbose=2 # sets verbose = 2
+	  --debug verbose=2,file=~/perf.log
+	                    # sets verbose = 2 and save log to file
 
 	List of debug variables allowed to set:
 	  verbose[=level]	- general debug messages
@@ -26,6 +27,9 @@ OPTIONS
 	                          in browser mode
 	  perf-event-open	- Print perf_event_open() arguments and
 	                          return value
+	  file[=path]           - write debug output to log file, default
+	                          'perf.log' (stderr and file options are
+	                          exclusive)
 
 --buildid-dir::
 	Setup buildid cache directory. It has higher priority than
