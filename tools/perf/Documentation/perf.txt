@@ -13,19 +13,19 @@ SYNOPSIS
 OPTIONS
 -------
 --debug::
-	Setup debug variable (see list below) in value
-	range (0, 10). Use like:
+	Setup debug variable (see list below). The range of 'level' value
+	is (0, 10). Use like:
 	  --debug verbose   # sets verbose = 1
 	  --debug verbose=2 # sets verbose = 2
 
 	List of debug variables allowed to set:
-	  verbose          - general debug messages
-	  ordered-events   - ordered events object debug messages
-	  data-convert     - data convert command debug messages
-	  stderr           - write debug output (option -v) to stderr
-	                     in browser mode
-	  perf-event-open  - Print perf_event_open() arguments and
-			     return value
+	  verbose[=level]	- general debug messages
+	  ordered-events[=level]- ordered events object debug messages
+	  data-convert[=level]	- data convert command debug messages
+	  stderr		- write debug output (option -v) to stderr
+	                          in browser mode
+	  perf-event-open	- Print perf_event_open() arguments and
+	                          return value
 
 --buildid-dir::
 	Setup buildid cache directory. It has higher priority than
