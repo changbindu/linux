@@ -998,6 +998,19 @@ sym_re_search_free:
 	return sym_arr;
 }
 
+struct symbol *sym_get_by_name(const char *name)
+{
+	struct symbol *sym;
+	int i;
+
+	for_all_symbols(i, sym) {
+		if (sym->name && !strcmp(sym->name, name))
+			return sym;
+	}
+
+	return NULL;
+}
+
 /*
  * When we check for recursive dependencies we use a stack to save
  * current state so we can print out relevant info to user.

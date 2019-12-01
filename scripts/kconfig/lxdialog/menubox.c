@@ -51,7 +51,7 @@ static int menu_width, item_x;
  * Print menu item
  */
 static void do_print_item(WINDOW * win, const char *item, int line_y,
-			  int selected, int hotkey)
+			  int selected, bool highlight, int hotkey)
 {
 	int j;
 	char *menu_item = malloc(menu_width + 1);
@@ -73,6 +73,8 @@ static void do_print_item(WINDOW * win, const char *item, int line_y,
 	wclrtoeol(win);
 #endif
 	wattrset(win, selected ? dlg.item_selected.atr : dlg.item.atr);
+	if (highlight)
+		wattr_on(win, WA_UNDERLINE, NULL);
 	mvwaddstr(win, line_y, item_x, menu_item);
 	if (hotkey) {
 		wattrset(win, selected ? dlg.tag_key_selected.atr
@@ -89,7 +91,7 @@ static void do_print_item(WINDOW * win, const char *item, int line_y,
 #define print_item(index, choice, selected)				\
 do {									\
 	item_set(index);						\
-	do_print_item(menu, item_str(), choice, selected, !item_is_tag(':')); \
+	do_print_item(menu, item_str(), choice, selected, item_is_loaded(), !item_is_tag(':')); \
 } while (0)
 
 /*

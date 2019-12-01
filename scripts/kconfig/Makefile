@@ -30,6 +30,7 @@ gconfig: $(obj)/gconf
 	$< $(silent) $(Kconfig)
 
 menuconfig: $(obj)/mconf
+	env > env.sh
 	$< $(silent) $(Kconfig)
 
 config: $(obj)/conf
@@ -163,7 +164,7 @@ hostprogs-y	+= nconf
 nconf-objs	:= nconf.o nconf.gui.o $(common-objs)
 
 HOSTLDLIBS_nconf	= $(shell . $(obj)/nconf-cfg && echo $$libs)
-HOSTCFLAGS_nconf.o	= $(shell . $(obj)/nconf-cfg && echo $$cflags)
+HOSTCFLAGS_nconf.o	= $(shell . $(obj)/nconf-cfg && echo $$cflags) -g -O0
 HOSTCFLAGS_nconf.gui.o	= $(shell . $(obj)/nconf-cfg && echo $$cflags)
 
 $(obj)/nconf.o $(obj)/nconf.gui.o: $(obj)/nconf-cfg
@@ -172,11 +173,11 @@ $(obj)/nconf.o $(obj)/nconf.gui.o: $(obj)/nconf-cfg
 hostprogs-y	+= mconf
 lxdialog	:= $(addprefix lxdialog/, \
 		     checklist.o inputbox.o menubox.o textbox.o util.o yesno.o)
-mconf-objs	:= mconf.o $(lxdialog) $(common-objs)
+mconf-objs	:= mconf.o localmod.o $(lxdialog) $(common-objs)
 
 HOSTLDLIBS_mconf = $(shell . $(obj)/mconf-cfg && echo $$libs)
 $(foreach f, mconf.o $(lxdialog), \
-  $(eval HOSTCFLAGS_$f = $$(shell . $(obj)/mconf-cfg && echo $$$$cflags)))
+  $(eval HOSTCFLAGS_$f =-g -O0 $$(shell . $(obj)/mconf-cfg && echo $$$$cflags)))
 
 $(addprefix $(obj)/, mconf.o $(lxdialog)): $(obj)/mconf-cfg
 

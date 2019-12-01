@@ -12,6 +12,8 @@ bool conf_get_changed(void);
 void conf_set_changed_callback(void (*fn)(void));
 void conf_set_message_callback(void (*fn)(const char *s));
 
+int conf_read_load_stat(void);
+
 /* menu.c */
 extern struct menu rootmenu;
 
@@ -33,6 +35,7 @@ struct symbol * sym_lookup(const char *name, int flags);
 struct symbol * sym_find(const char *name);
 const char * sym_escape_string_value(const char *in);
 struct symbol ** sym_re_search(const char *pattern);
+struct symbol *sym_get_by_name(const char *name);
 const char * sym_type_name(enum symbol_type type);
 void sym_calc_value(struct symbol *sym);
 enum symbol_type sym_get_type(struct symbol *sym);

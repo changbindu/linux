@@ -155,6 +155,7 @@ struct dialog_item {
 	char tag;
 	void *data;	/* pointer to menu item - used by menubox+checklist */
 	int selected;	/* Set to 1 by dialog_*() function if selected. */
+	bool loaded;  /* Set to 1 if this is module and loaded. */
 };
 
 /* list of lialog_items */
@@ -172,6 +173,8 @@ void item_set(int n);
 int item_n(void);
 const char *item_str(void);
 int item_is_selected(void);
+void item_set_loaded(void);
+bool item_is_loaded(void);
 int item_is_tag(char tag);
 #define item_foreach() \
 	for (item_cur = item_head ? item_head: item_cur; \

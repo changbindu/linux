@@ -633,6 +633,9 @@ static void build_conf(struct menu *menu)
 		}
 	}
 
+	if (sym_is_loaded(sym))
+		item_set_loaded();
+
 conf_childs:
 	indent += doint;
 	for (child = menu->list; child; child = child->next)
@@ -1015,6 +1018,7 @@ int main(int ac, char **av)
 	}
 	conf_parse(av[1]);
 	conf_read(NULL);
+	conf_read_load_stat();
 
 	mode = getenv("MENUCONFIG_MODE");
 	if (mode) {

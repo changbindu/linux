@@ -166,8 +166,8 @@ static int set_theme(const char *theme)
 static void init_one_color(struct dialog_color *color)
 {
 	static int pair = 0;
-
 	pair++;
+
 	init_pair(pair, color->fg, color->bg);
 	if (color->hl)
 		color->atr = A_BOLD | COLOR_PAIR(pair);
@@ -692,6 +692,16 @@ const char *item_str(void)
 int item_is_selected(void)
 {
 	return (item_cur->node.selected != 0);
+}
+
+void item_set_loaded(void)
+{
+	item_cur->node.loaded = true;
+}
+
+bool item_is_loaded(void)
+{
+	return item_cur->node.loaded;
 }
 
 int item_is_tag(char tag)
