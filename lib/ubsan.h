@@ -30,6 +30,12 @@ struct overflow_data {
 	struct type_descriptor *type;
 };
 
+struct implicit_conversion_data {
+	struct source_location location;
+	struct type_descriptor *from_type;
+	struct type_descriptor *to_type;
+};
+
 struct type_mismatch_data {
 	struct source_location location;
 	struct type_descriptor *type;

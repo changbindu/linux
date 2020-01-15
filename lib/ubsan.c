@@ -248,6 +248,27 @@ void __ubsan_handle_divrem_overflow(struct overflow_data *data,
 }
 EXPORT_SYMBOL(__ubsan_handle_divrem_overflow);
 
+void __ubsan_handle_implicit_conversion(struct implicit_conversion_data *data,
+					void *from, void *to)
+{
+	char from_str[VALUE_LENGTH];
+	char to_str[VALUE_LENGTH];
+
+	if (suppress_report(&data->location))
+		return;
+
+	ubsan_prologue(&data->location);
+
+	val_to_string(from_str, sizeof(from_str), data->from_type, from);
+	val_to_string(to_str, sizeof(to_str), data->to_type, to);
+
+	pr_err("implicit conversion from type %s of value %s to type %s changed the value to %s\n",
+	       data->from_type->type_name, from_str,
+	       data->to_type->type_name, to_str);
+	ubsan_epilogue();
+}
+EXPORT_SYMBOL(__ubsan_handle_implicit_conversion);
+
 static void handle_null_ptr_deref(struct type_mismatch_data_common *data)
 {
 	if (suppress_report(data->location))
