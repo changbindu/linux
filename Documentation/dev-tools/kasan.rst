@@ -55,6 +55,18 @@ similar to the following to the respective kernel Makefile:
 
     KASAN_SANITIZE := n
 
+Similarly, to disable all sanitizers (KASAN, UBSAN) for specific files or
+directories, add a line similar to the following to the respective kernel
+Makefile:
+
+- For a single file (e.g. main.o)::
+
+    SANITIZE_main.o := n
+
+- For all files in one directory::
+
+    SANITIZE := n
+
 Error reports
 ~~~~~~~~~~~~~
 
