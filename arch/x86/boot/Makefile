@@ -9,7 +9,7 @@
 # Changed by many, many contributors over the years.
 #
 
-KASAN_SANITIZE			:= n
+SANITIZE			:= n
 OBJECT_FILES_NON_STANDARD	:= y
 
 # Kernel does not boot with kcov instrumentation here.

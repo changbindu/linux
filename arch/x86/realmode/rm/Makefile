@@ -6,7 +6,7 @@
 # for more details.
 #
 #
-KASAN_SANITIZE			:= n
+SANITIZE			:= n
 OBJECT_FILES_NON_STANDARD	:= y
 
 # Prevents link failures: __sanitizer_cov_trace_pc() is not linked in.
