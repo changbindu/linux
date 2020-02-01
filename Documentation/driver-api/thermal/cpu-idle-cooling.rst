@@ -1,6 +1,9 @@
+================
+CPU Idle Cooling
+================
 
-Situation:
-----------
+Situation
+---------
 
 Under certain circumstances a SoC can reach a critical temperature
 limit and is unable to stabilize the temperature around a temperature
@@ -24,8 +27,8 @@ with a power less than the requested power budget and the next OPP
 exceeds the power budget. An intermediate OPP could have been used if
 it were present.
 
-Solutions:
-----------
+Solutions
+---------
 
 If we can remove the static and the dynamic leakage for a specific
 duration in a controlled period, the SoC temperature will
@@ -45,12 +48,12 @@ idle state target residency, we lead to dropping the static and the
 dynamic leakage for this period (modulo the energy needed to enter
 this state). So the sustainable power with idle cycles has a linear
 relation with the OPP’s sustainable power and can be computed with a
-coefficient similar to:
+coefficient similar to::
 
 	    Power(IdleCycle) = Coef x Power(OPP)
 
-Idle Injection:
----------------
+Idle Injection
+--------------
 
 The base concept of the idle injection is to force the CPU to go to an
 idle state for a specified time each control cycle, it provides
@@ -64,6 +67,7 @@ latencies as the CPUs will have to wakeup from a deep sleep state.
 We use a fixed duration of idle injection that gives an acceptable
 performance penalty and a fixed latency. Mitigation can be increased
 or decreased by modulating the duty cycle of the idle injection.
+::
 
      ^
      |
@@ -90,6 +94,7 @@ computed.
 
 The governor will change the cooling device state thus the duty cycle
 and this variation will modulate the cooling effect.
+::
 
      ^
      |
@@ -132,7 +137,7 @@ Power considerations
 --------------------
 
 When we reach the thermal trip point, we have to sustain a specified
-power for a specific temperature but at this time we consume:
+power for a specific temperature but at this time we consume::
 
  Power = Capacitance x Voltage^2 x Frequency x Utilisation
 
@@ -141,7 +146,7 @@ wrong in the system setup). The ‘Capacitance’ and ‘Utilisation’ are a
 fixed value, ‘Voltage’ and the ‘Frequency’ are fixed artificially
 because we don’t want to change the OPP. We can group the
 ‘Capacitance’ and the ‘Utilisation’ into a single term which is the
-‘Dynamic Power Coefficient (Cdyn)’ Simplifying the above, we have:
+‘Dynamic Power Coefficient (Cdyn)’ Simplifying the above, we have::
 
  Pdyn = Cdyn x Voltage^2 x Frequency
 
@@ -150,7 +155,7 @@ in order to target the sustainable power defined in the device
 tree. So with the idle injection mechanism, we want an average power
 (Ptarget) resulting in an amount of time running at full power on a
 specific OPP and idle another amount of time. That could be put in a
-equation:
+equation::
 
  P(opp)target = ((Trunning x (P(opp)running) + (Tidle x P(opp)idle)) /
 			(Trunning + Tidle)
@@ -160,7 +165,7 @@ equation:
 
 At this point if we know the running period for the CPU, that gives us
 the idle injection we need. Alternatively if we have the idle
-injection duration, we can compute the running duration with:
+injection duration, we can compute the running duration with::
 
  Trunning = Tidle / ((P(opp)running / P(opp)target) - 1)
 
@@ -183,7 +188,7 @@ However, in this demonstration we ignore three aspects:
    target residency, otherwise we end up consuming more energy and
    potentially invert the mitigation effect
 
-So the final equation is:
+So the final equation is::
 
  Trunning = (Tidle - Twakeup ) x
 		(((P(opp)dyn + P(opp)static ) - P(opp)target) / P(opp)target )
