@@ -183,6 +183,11 @@ config DEBUG_BUGVERBOSE
 	  of the BUG call as well as the EIP and oops trace.  This aids
 	  debugging but costs about 70-100K of memory.
 
+config DEBUG_NO_HASH_PTR
+	bool "Do not hash ponters"
+	help
+	  Leave pointer printed as it was.
+
 endmenu # "printk and dmesg options"
 
 menu "Compile-time checks and compiler options"
