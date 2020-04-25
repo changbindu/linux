@@ -790,6 +790,9 @@ int ptr_to_hashval(const void *ptr, unsigned long *hashval_out)
 static char *ptr_to_id(char *buf, char *end, const void *ptr,
 		       struct printf_spec spec)
 {
+#if CONFIG_DEBUG_NO_HASH_PTR
+	return pointer_string(buf, end, ptr, spec);
+#else
 	const char *str = sizeof(ptr) == 8 ? "(____ptrval____)" : "(ptrval)";
 	unsigned long hashval;
 	int ret;
@@ -808,6 +811,7 @@ static char *ptr_to_id(char *buf, char *end, const void *ptr,
 	}
 
 	return pointer_string(buf, end, (const void *)hashval, spec);
+#endif
 }
 
 int kptr_restrict __read_mostly;
