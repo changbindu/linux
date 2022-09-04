@@ -53,6 +53,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <capstone/capstone.h>
 #include <subcmd/pager.h>
 #include <perf/evlist.h>
 #include <linux/err.h>
@@ -1476,17 +1477,29 @@ static int perf_sample__fprintf_insn(struct perf_sample *sample,
 				     struct machine *machine, FILE *fp)
 {
 	int printed = 0;
+	static csh handle;
+	static bool inited = false;
 
 	script_fetch_insn(sample, thread, machine);
+
+	if (!inited) {
+		if (cs_open(CS_ARCH_X86, CS_MODE_64, &handle) != CS_ERR_OK)
+			return 0;
+		cs_option(handle, CS_OPT_SYNTAX, CS_OPT_SYNTAX_ATT);
+		inited = true;
+	}
 
 	if (PRINT_FIELD(INSNLEN))
 		printed += fprintf(fp, " ilen: %d", sample->insn_len);
 	if (PRINT_FIELD(INSN) && sample->insn_len) {
-		int i;
+		size_t count;
+		cs_insn *insn;
 
-		printed += fprintf(fp, " insn:");
-		for (i = 0; i < sample->insn_len; i++)
-			printed += fprintf(fp, " %02x", (unsigned char)sample->insn[i]);
+		count = cs_disasm(handle, (uint8_t*)sample->insn, sample->insn_len, sample->ip, 1, &insn);
+		if (count > 0) {
+			printed += printf(" insn: %s %s", insn[0].mnemonic, insn[0].op_str);
+			cs_free(insn, count);
+		}
 	}
 	if (PRINT_FIELD(BRSTACKINSN) || PRINT_FIELD(BRSTACKINSNLEN))
 		printed += perf_sample__fprintf_brstackinsn(sample, thread, attr, machine, fp);
