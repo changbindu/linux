@@ -294,4 +294,7 @@ struct prctl_mm_map {
 
 #define PR_SET_MEMORY_MERGE		67
 #define PR_GET_MEMORY_MERGE		68
+
+#define PR_TASK_PERF_EVENTS_DISABLE_ATTACHED		69
+#define PR_TASK_PERF_EVENTS_ENABLE_ATTACHED		70
 #endif /* _LINUX_PRCTL_H */

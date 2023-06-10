@@ -5985,6 +5985,25 @@ int perf_event_task_disable(void)
 	return 0;
 }
 
+int perf_event_enable_attached_events(void)
+{
+	struct perf_event_context *ctx;
+	struct perf_event *event;
+
+	ctx = perf_pin_task_context(current);
+	if (!ctx)
+		return;
+
+	list_for_each_entry(event, &ctx->event_list, event_entry) {
+		_perf_event_enable(event);
+	}
+
+	perf_unpin_context(ctx);
+	put_ctx(ctx);
+
+	return 0;
+}
+
 static int perf_event_index(struct perf_event *event)
 {
 	if (event->hw.state & PERF_HES_STOPPED)
