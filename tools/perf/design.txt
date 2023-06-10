@@ -439,16 +439,15 @@ Additionally, non-inherited overflow counters can use
 
 to enable a counter for 'nr' events, after which it gets disabled again.
 
-A process can enable or disable all the counter groups that are
-attached to it, using prctl:
+A thread can enable or disable all the counter groups that are
+created by it, using prctl:
 
 	prctl(PR_TASK_PERF_EVENTS_ENABLE);
 
 	prctl(PR_TASK_PERF_EVENTS_DISABLE);
 
-This applies to all counters on the current process, whether created
-by this process or by another, and doesn't affect any counters that
-this process has created on other processes.  It only enables or
+This applies to all counters created by this thread, and doesn't affect any
+counters that created by other processes or threads.  It only enables or
 disables the group leaders, not any other members in the groups.
 
 
